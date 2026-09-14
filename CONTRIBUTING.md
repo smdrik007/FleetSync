@@ -13,6 +13,17 @@ Guidelines for the project team so our GitHub history stays clean and reviewable
 4. Add this file, the README, and a `.gitignore` (Node) as the first commit.
 5. Create the initial folder structure: `backend/`, `website/`, `mobile/`, `docs/`, `scripts/`.
 
+## Git author identity (do this in your local clone)
+
+To ensure commits are correctly attributed to your GitHub profile and the Contributors list stays accurate, configure your Git identity in your local repository clone:
+
+```bash
+git config user.name "Your Full Name"
+git config user.email "your-github-email@example.com"
+```
+
+The repository includes a `.mailmap` and a `.githooks/pre-commit` hook to safeguard against commits from unverified identities.
+
 ## Branching model
 
 - `main` — always working, always demo-able. Never commit directly.

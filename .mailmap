@@ -1,0 +1,6 @@
+# Git & GitHub mailmap configuration
+# Maps author names and emails to canonical identities for git logs, stats, and contributors
+
+# Remap any legacy or accidental commits under Mushfiq's credentials to Sidratul Muntaha
+Sidratul Muntaha <86551312+smdrik007@users.noreply.github.com> mushfiq-906 <mushfiq.shafi13@gmail.com>
+Sidratul Muntaha <86551312+smdrik007@users.noreply.github.com> <mushfiq.shafi13@gmail.com>
