@@ -16,44 +16,35 @@ Commercial fleet platforms (Samsara, Verizon Connect / Fleetmatics, Geotab, Flee
 
 ## Core features
 
-- **Multi-tenant onboarding** — self-service organization signup, subscription tiers (Free / Standard / Enterprise), strict data isolation between tenants
-- **Vehicle & driver management** — registration, document/insurance expiry tracking, license verification, vehicle-driver assignment
-- **Real-time GPS tracking** — live fleet map, configurable ping interval, 30-day route-history replay, rule-based fallback when live data is degraded
-- **Geofencing** — circular/polygon zones for depots and customer sites, entry/exit alerts
-- **Trip logging** — assignment, status tracking (assigned → in_progress → completed), route and mileage history
-- **Maintenance scheduling** — mileage/time/engine-hour based service schedules, automatic due alerts, service-record logging
-- **Fuel & cost tracking** — fuel-purchase logging, efficiency calculation, anomaly flagging
-- **Driver safety scoring** — harsh-braking/speeding/idling event detection, rolling safety score, low-score alerts
-- **Role-based dashboards** — Organization Admin, Fleet Manager, Dispatcher, Driver, each scoped to their own organization
+- **Multi-tenant institutional onboarding** — multi-institution selection, secure credential login, strict data isolation between tenants
+- **Consolidated Transportation Pool (Authority)** — exclusive control over vehicle fleet, route configuration via text box, driver assignment via dropdown, and activity status control
+- **Instant real-time synchronization** — changes made to vehicle routes, drivers, or statuses reflect instantly on driver and passenger screens
+- **Hardware-free real-time GPS tracking** — live transit tracking using HTML5 Geolocation API on drivers' smartphones (no OBD-II hardware needed)
+- **Driver privacy protection** — trip-bound GPS tracking with automatic termination upon trip completion, clear status indicators, and zero off-duty tracking
+- **Passenger live tracking portal** — vehicle number dropdown, interactive Leaflet map, smart route delimiter parser (visual milestone stepper), and one-touch driver calling (`tel:`)
+- **Graceful signal fallback** — amber "Last Seen" badge with exact timestamp if cellular connection is lost mid-trip
 
-See [`docs/FleetSync_SRS_v0.1.docx`](docs/FleetSync_SRS_v0.1.docx) for the full Software Requirements Specification.
+See [`docs/SRS.md`](docs/SRS.md) and [`docs/FleetSync_SRS_Final.docx`](docs/FleetSync_SRS_Final.docx) for the full Software Requirements Specification.
 
 ## Tech stack
 
 | Layer | Technology |
 |---|---|
-| Backend | Node.js, Express, PostgreSQL (`pg`), row-level security for tenant isolation |
-| Auth | JWT (tenant-scoped), bcryptjs |
-| File uploads | multer |
-| Geo | PostGIS (geospatial queries) + mapping/routing API (Google Maps or OpenStreetMap) |
-| Ingestion | Lightweight REST/MQTT endpoint for high-frequency GPS pings, decoupled from the main API |
-| Website | Responsive HTML5 / CSS3 / JS dashboard, mobile-first |
-| Mobile (planned) | React Native / Flutter driver app |
-| Notifications | Twilio (SMS), SendGrid (email), Firebase Cloud Messaging (push) |
-| Billing | Payment gateway integration — planned, manual tier assignment for now |
+| Backend | Node.js, Express / Next.js, PostgreSQL, row-level/tenant-scoped data isolation |
+| Auth | JWT / Session (tenant-scoped), bcrypt |
+| Mapping & Telemetry | Leaflet.js + OpenStreetMap, HTML5 Geolocation API, WebSockets / SSE for live sync |
+| Frontend | Responsive HTML5 / CSS3 / Tailwind CSS, mobile-first PWA |
 
 ## Project structure
 
 ```
 fleetsync/
-├── backend/          # Express API, tenant-scoped services, ingestion endpoint
-├── website/          # Org admin + fleet manager + dispatcher web app (no build step)
-├── mobile/           # Driver app (React Native / Flutter — see docs/SRS.md §2.4)
+├── backend/          # API services, tenant-scoped controllers, telemetry endpoint
+├── website/          # Responsive web interface (Authority, Driver, Passenger consoles)
 ├── docs/
-│   ├── FleetSync_SRS_v0.1.docx       # Software Requirements Specification
-│   ├── tasks.md                      # Sprint backlog / task list
-│   ├── architecture.md               # (Week 2)
-│   └── api-contract.md               # (Week 2)
+│   ├── FleetSync_SRS_Final.docx      # Finalized SRS Document (Word format)
+│   ├── SRS.md                        # Finalized SRS Document (Markdown, IEEE Std 830)
+│   └── generate_docx.py              # Script to build docx from specification
 └── README.md
 ```
 
