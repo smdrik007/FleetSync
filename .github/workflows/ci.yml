@@ -11,6 +11,12 @@ jobs:
     name: Backend Checks & Schema Validation
     runs-on: ubuntu-latest
 
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      JWT_SECRET: ci-test-secret-not-for-production
+      NODE_ENV: test
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
