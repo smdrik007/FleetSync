@@ -11,10 +11,12 @@ jobs:
     name: Backend Checks & Schema Validation
     runs-on: ubuntu-latest
 
+    # Prisma validate/generate don't connect to the DB — dummy URLs satisfy
+    # the env var requirement without exposing real credentials.
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      DIRECT_URL: ${{ secrets.DIRECT_URL }}
-      JWT_SECRET: ci-test-secret-not-for-production
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci_dummy?sslmode=disable
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci_dummy?sslmode=disable
+      JWT_SECRET: ci-test-secret
       NODE_ENV: test
 
     steps:
