@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FleetSync — Authority Dashboard</title>
+  <meta name="description" content="Transportation Pool dashboard — manage fleet vehicles, assign drivers, and control routes." />
+  <link rel="stylesheet" href="../style.css" />
+  <!-- Leaflet for map previews -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    .app-shell { display:flex; min-height:100vh; }
+    .main-area { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+    .page-content { flex:1; padding:24px; overflow-y:auto; }
+
+    .grid-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; margin-bottom:24px; }
+
+    /* Edit panel */
+    .edit-panel {
+      background:    var(--surface2);
+      border:        1.5px solid rgba(79,142,247,.35);
+      border-radius: var(--radius-lg);
+      padding:       20px;
+      margin-top:    16px;
+    }
+    .edit-panel-title {
+      font-size:.84rem; font-weight:700; color:var(--accent);
+      margin-bottom:16px; display:flex; align-items:center; gap:8px;
+    }
+
+    .edit-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    @media (max-width:640px) { .edit-grid { grid-template-columns:1fr; } }
+
+    /* vehicle row actions */
+    .action-cell { display:flex; gap:6px; }
+
+    /* driver conflict label in select */
+    option.conflict { color: var(--amber); }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ─── Sidebar ─── -->
+  <nav class="sidebar" role="navigation" aria-label="Main navigation">
+    <div class="sidebar-brand">Fleet<span>Sync</span></div>
+
+    <a href="#" class="nav-item active" id="nav-fleet">
+      <span class="nav-icon">🚌</span> Fleet
+    </a>
+    <a href="#" class="nav-item" id="nav-drivers" onclick="showDriversTab(); return false;">
+      <span class="nav-icon">👥</span> Drivers
+    </a>
+
+    <div style="margin-top:auto; padding:12px 8px 0; border-top:1px solid var(--border);">
+      <div class="text-xs text-muted">Signed in as</div>
+      <div style="font-size:.84rem;font-weight:600;margin-top:2px;" id="sidebar-name">—</div>
+      <div class="text-xs text-muted" id="sidebar-inst">—</div>
+      <button class="btn btn-outline btn-sm w-full mt-3" id="logout-btn">Sign Out</button>
+    </div>
+  </nav>
+
+  <!-- ─── Main area ─── -->
+  <div class="main-area">
+
+    <!-- Topbar -->
+    <header class="topbar" role="banner">
+      <h1 style="font-size:1rem;font-weight:700;" id="page-title">Fleet Management</h1>
+      <div class="topbar-spacer"></div>
+      <div id="ws-badge" class="badge badge-muted" style="font-size:.68rem;">⚡ Connecting…</div>
+      <button class="btn btn-primary btn-sm" id="add-vehicle-btn">+ Add Vehicle</button>
+    </header>
+
+    <!-- Page content -->
+    <main class="page-content" id="fleet-tab">
+
+      <!-- Stats -->
+      <div class="grid-stats" id="stats-row">
+        <div class="stat-card"><div class="stat-value" id="stat-total">—</div><div class="stat-label">Total Vehicles</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--amber)" id="stat-ontrip">—</div><div class="stat-label">On Trip</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--green)" id="stat-active">—</div><div class="stat-label">Active</div></div>
+        <div class="stat-card"><div class="stat-value" style="color:var(--red)" id="stat-maint">—</div><div class="stat-label">Maintenance</div></div>
+      </div>
+
+      <!-- Vehicle table -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+          <h2 style="font-size:.95rem;">Vehicle Roster</h2>
+          <div class="topbar-spacer"></div>
+          <select class="form-select" id="status-filter" style="width:160px;padding:6px 10px;">
+            <option value="">All Statuses</option>
+            <option value="ACTIVE">Active</option>
+            <option value="ON_TRIP">On Trip</option>
+            <option value="MAINTENANCE">Maintenance</option>
+            <option value="INACTIVE">Inactive</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table" id="vehicles-table">
+            <thead>
+              <tr>
+                <th>Vehicle</th>
+                <th>Plate</th>
+                <th>Status</th>
+                <th>Driver</th>
+                <th>Route</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="vehicles-tbody">
+              <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted);">
+                <div class="spinner" style="margin:0 auto 10px;"></div>Loading vehicles…
+              </td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Edit / Add Panel -->
+      <div class="edit-panel" id="edit-panel" style="display:none;">
+        <div class="edit-panel-title">
+          <span id="edit-panel-icon">✏️</span>
+          <span id="edit-panel-title-text">Edit Vehicle</span>
+          <div style="margin-left:auto;"><button class="btn btn-ghost btn-sm" id="close-edit-btn">✕ Close</button></div>
+        </div>
+
+        <form id="vehicle-form" novalidate>
+          <input type="hidden" id="edit-vehicle-id" />
+          <div class="edit-grid">
+            <div class="form-group">
+              <label class="form-label" for="f-vehicleNumber">Vehicle Number</label>
+              <input class="form-input" type="text" id="f-vehicleNumber" placeholder="Bus #03" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="f-plateNumber">Plate Number</label>
+              <input class="form-input" type="text" id="f-plateNumber" placeholder="KH-DHA-11-1003" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="f-model">Model</label>
+              <input class="form-input" type="text" id="f-model" placeholder="Tata LPO 1512" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="f-capacity">Capacity</label>
+              <input class="form-input" type="number" id="f-capacity" placeholder="40" min="1" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label class="form-label" for="f-assignedRoute">Route Text Box <span style="color:var(--muted);font-size:.72rem;">supports → or , delimiters</span></label>
+              <input class="form-input" type="text" id="f-assignedRoute" placeholder="Stop A → Stop B → Stop C" />
+              <div class="form-hint">Example: Sonadanga → Shibbari → KU Main Gate → Campus</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="f-assignedDriver">Assign Driver</label>
+              <select class="form-select" id="f-assignedDriver">
+                <option value="">— Unassigned —</option>
+              </select>
+              <div class="form-hint" id="driver-conflict-hint" style="display:none;color:var(--amber);">⚠ Reassigning will unbind this driver from their current vehicle.</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="f-currentStatus">Activity Status</label>
+              <select class="form-select" id="f-currentStatus">
+                <option value="ACTIVE">🟢 ACTIVE</option>
+                <option value="ON_TRIP">🟡 ON_TRIP</option>
+                <option value="MAINTENANCE">🔴 MAINTENANCE</option>
+                <option value="INACTIVE">⚫ INACTIVE</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="form-error" class="alert alert-danger" style="display:none;margin-top:8px;">
+            <span class="alert-icon">❌</span><span id="form-error-msg"></span>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:16px;align-items:center;">
+            <button class="btn btn-primary" type="submit" id="save-btn">
+              <span id="save-btn-text">💾 Save Changes</span>
+              <span id="save-spinner" class="spinner" style="display:none;"></span>
+            </button>
+            <button class="btn btn-outline" type="button" id="cancel-edit-btn">Cancel</button>
+            <button class="btn btn-danger btn-sm" type="button" id="delete-vehicle-btn" style="margin-left:auto;display:none;">🗑 Decommission</button>
+            <span style="font-size:.7rem;color:var(--accent2);margin-left:8px;">⚡ Syncs instantly</span>
+          </div>
+        </form>
+      </div>
+
+    </main>
+
+    <!-- Drivers tab -->
+    <main class="page-content" id="drivers-tab" style="display:none;">
+      <h2 style="margin-bottom:16px;font-size:.95rem;">Driver Roster</h2>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table class="data-table" id="drivers-table">
+            <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Assigned Vehicle</th></tr></thead>
+            <tbody id="drivers-tbody">
+              <tr><td colspan="4" style="text-align:center;padding:24px;color:var(--muted);">Loading drivers…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+  </div><!-- /main-area -->
+</div><!-- /app-shell -->
+
+<div id="toast-container"></div>
+
+<script src="../app.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   Authority Dashboard
+   ═══════════════════════════════════════════════════════════════════ */
+(async function init() {
+  if (!Auth.require('AUTHORITY')) return;
+
+  const user = Auth.user();
+  document.getElementById('sidebar-name').textContent = user.name;
+  // Load institution name
+  try {
+    const me = await Api.get('/auth/me');
+    document.getElementById('sidebar-inst').textContent = me.name || user.institutionId;
+  } catch {}
+
+  // ── WebSocket ──────────────────────────────────────────────────────
+  WsManager.connect();
+  WsManager.on('connected', () => {
+    document.getElementById('ws-badge').className = 'badge badge-green';
+    document.getElementById('ws-badge').textContent = '⚡ Live';
+  });
+
+  // Refresh table on any vehicle event
+  ['vehicle.route_updated','vehicle.driver_assigned','vehicle.status_changed'].forEach((ev) => {
+    WsManager.on(ev, () => { loadVehicles(); Toast.info('Fleet updated in real time.'); });
+  });
+
+  // ── Logout ──────────────────────────────────────────────────────────
+  document.getElementById('logout-btn').onclick = () => { Auth.clear(); window.location.href = '../index.html'; };
+
+  // ── Nav tabs ────────────────────────────────────────────────────────
+  document.getElementById('nav-fleet').onclick = (e) => { e.preventDefault(); showFleetTab(); };
+
+  // ── Status filter ───────────────────────────────────────────────────
+  document.getElementById('status-filter').onchange = () => loadVehicles();
+
+  // ── Add vehicle ─────────────────────────────────────────────────────
+  document.getElementById('add-vehicle-btn').onclick = () => openAddPanel();
+  document.getElementById('close-edit-btn').onclick  = closePanel;
+  document.getElementById('cancel-edit-btn').onclick = closePanel;
+
+  // ── Driver conflict hint ─────────────────────────────────────────────
+  document.getElementById('f-assignedDriver').onchange = function() {
+    const sel = this.options[this.selectedIndex];
+    const hint = document.getElementById('driver-conflict-hint');
+    hint.style.display = sel.dataset.conflict === '1' ? 'block' : 'none';
+  };
+
+  // ── Form submit ─────────────────────────────────────────────────────
+  document.getElementById('vehicle-form').onsubmit = async (e) => {
+    e.preventDefault();
+    await saveVehicle();
+  };
+
+  // ── Delete button ───────────────────────────────────────────────────
+  document.getElementById('delete-vehicle-btn').onclick = async () => {
+    const id = document.getElementById('edit-vehicle-id').value;
+    if (!id) return;
+    if (!confirm('Decommission this vehicle? This cannot be undone.')) return;
+    try {
+      await Api.delete(`/fleet/vehicles/${id}`);
+      Toast.success('Vehicle decommissioned.');
+      closePanel();
+      loadVehicles();
+    } catch (err) {
+      Toast.error(err.message);
+    }
+  };
+
+  // ── Initial data load ────────────────────────────────────────────────
+  await loadVehicles();
+  await loadDrivers();
+})();
+
+/* ─── Vehicles ─────────────────────────────────────────────────────── */
+async function loadVehicles() {
+  const statusFilter = document.getElementById('status-filter').value;
+  const path = '/fleet/vehicles' + (statusFilter ? `?status=${statusFilter}` : '');
+
+  try {
+    const vehicles = await Api.get(path);
+    renderStats(vehicles);
+    renderTable(vehicles);
+  } catch (err) {
+    Toast.error('Failed to load vehicles: ' + err.message);
+  }
+}
+
+function renderStats(vehicles) {
+  document.getElementById('stat-total').textContent  = vehicles.length;
+  document.getElementById('stat-ontrip').textContent = vehicles.filter(v => v.currentStatus === 'ON_TRIP').length;
+  document.getElementById('stat-active').textContent = vehicles.filter(v => v.currentStatus === 'ACTIVE').length;
+  document.getElementById('stat-maint').textContent  = vehicles.filter(v => v.currentStatus === 'MAINTENANCE').length;
+}
+
+function renderTable(vehicles) {
+  const tbody = document.getElementById('vehicles-tbody');
+  if (!vehicles.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon">🚌</div><div class="empty-state-title">No vehicles yet</div><div class="empty-state-sub">Click "+ Add Vehicle" to register your first vehicle.</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = vehicles.map((v) => `
+    <tr data-id="${v.id}">
+      <td><strong>${esc(v.vehicleNumber)}</strong></td>
+      <td style="color:var(--muted);font-size:.78rem;">${esc(v.plateNumber)}</td>
+      <td>${statusBadge(v.currentStatus)}</td>
+      <td>
+        ${v.assignedDriver
+          ? `<div style="display:flex;align-items:center;gap:8px;">
+               <div class="driver-avatar" style="width:28px;height:28px;font-size:.68rem;">${initials(v.assignedDriver.name)}</div>
+               <span style="font-size:.82rem;">${esc(v.assignedDriver.name)}</span>
+             </div>`
+          : `<span class="text-muted">Unassigned</span>`}
+      </td>
+      <td style="max-width:220px;font-size:.78rem;color:var(--text-2);" class="truncate">${esc(v.assignedRoute) || '—'}</td>
+      <td class="action-cell">
+        <button class="btn btn-outline btn-sm" onclick="openEditPanel('${v.id}')">✏️ Edit</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+/* ─── Drivers ──────────────────────────────────────────────────────── */
+async function loadDrivers() {
+  try {
+    window._drivers = await Api.get('/fleet/drivers');
+    renderDriversTable(window._drivers);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function renderDriversTable(drivers) {
+  const tbody = document.getElementById('drivers-tbody');
+  if (!drivers.length) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--muted);">No drivers registered.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = drivers.map((d) => `
+    <tr>
+      <td><div style="display:flex;align-items:center;gap:8px;">
+        <div class="driver-avatar" style="width:28px;height:28px;font-size:.68rem;">${initials(d.name)}</div>
+        <strong>${esc(d.name)}</strong>
+      </div></td>
+      <td style="font-size:.82rem;">${esc(d.email)}</td>
+      <td style="font-size:.82rem;">${esc(d.phone || '—')}</td>
+      <td>${d.currentVehicleNumber
+        ? `<span class="badge badge-green">${esc(d.currentVehicleNumber)}</span>`
+        : `<span class="text-muted">Unassigned</span>`}</td>
+    </tr>
+  `).join('');
+}
+
+/* ─── Edit / Add Panel ─────────────────────────────────────────────── */
+async function openAddPanel() {
+  document.getElementById('edit-vehicle-id').value = '';
+  document.getElementById('edit-panel-title-text').textContent = 'Add New Vehicle';
+  document.getElementById('edit-panel-icon').textContent = '➕';
+  document.getElementById('save-btn-text').textContent = '➕ Register Vehicle';
+  document.getElementById('delete-vehicle-btn').style.display = 'none';
+  resetForm();
+  await populateDriverDropdown(null);
+  showPanel();
+}
+
+async function openEditPanel(vehicleId) {
+  try {
+    const v = await Api.get(`/fleet/vehicles/${vehicleId}`);
+    document.getElementById('edit-vehicle-id').value = v.id;
+    document.getElementById('edit-panel-title-text').textContent = `Edit ${v.vehicleNumber}`;
+    document.getElementById('edit-panel-icon').textContent = '✏️';
+    document.getElementById('save-btn-text').textContent = '💾 Save Changes';
+    document.getElementById('delete-vehicle-btn').style.display = 'inline-flex';
+
+    document.getElementById('f-vehicleNumber').value  = v.vehicleNumber;
+    document.getElementById('f-plateNumber').value    = v.plateNumber;
+    document.getElementById('f-model').value          = v.model || '';
+    document.getElementById('f-capacity').value       = v.capacity || '';
+    document.getElementById('f-assignedRoute').value  = v.assignedRoute || '';
+    document.getElementById('f-currentStatus').value  = v.currentStatus;
+
+    await populateDriverDropdown(v.assignedDriver?.id || null);
+    showPanel();
+  } catch (err) {
+    Toast.error('Failed to load vehicle: ' + err.message);
+  }
+}
+
+async function populateDriverDropdown(currentDriverId) {
+  const drivers = window._drivers || await Api.get('/fleet/drivers').then(d => { window._drivers = d; return d; });
+  const sel = document.getElementById('f-assignedDriver');
+  sel.innerHTML = '<option value="">— Unassigned —</option>';
+  drivers.forEach((d) => {
+    const opt = document.createElement('option');
+    opt.value = d.id;
+    const isConflict = d.currentVehicleId && d.id !== currentDriverId;
+    opt.textContent = isConflict
+      ? `⚠ ${d.name} (Currently ${d.currentVehicleNumber})`
+      : d.name;
+    if (isConflict) opt.dataset.conflict = '1';
+    if (d.id === currentDriverId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  document.getElementById('driver-conflict-hint').style.display = 'none';
+}
+
+async function saveVehicle() {
+  const id   = document.getElementById('edit-vehicle-id').value;
+  const body = {
+    vehicleNumber:    document.getElementById('f-vehicleNumber').value.trim(),
+    plateNumber:      document.getElementById('f-plateNumber').value.trim(),
+    model:            document.getElementById('f-model').value.trim() || null,
+    capacity:         parseInt(document.getElementById('f-capacity').value) || null,
+    assignedRoute:    document.getElementById('f-assignedRoute').value.trim(),
+    assignedDriverId: document.getElementById('f-assignedDriver').value || null,
+    currentStatus:    document.getElementById('f-currentStatus').value,
+  };
+
+  const errEl = document.getElementById('form-error');
+  const errMsg = document.getElementById('form-error-msg');
+  errEl.style.display = 'none';
+
+  if (!body.vehicleNumber || !body.plateNumber) {
+    errMsg.textContent = 'Vehicle number and plate number are required.';
+    errEl.style.display = 'flex';
+    return;
+  }
+
+  document.getElementById('save-btn').disabled = true;
+  document.getElementById('save-btn-text').style.display = 'none';
+  document.getElementById('save-spinner').style.display = 'block';
+
+  try {
+    if (id) {
+      await Api.put(`/fleet/vehicles/${id}`, body);
+      Toast.success('Vehicle updated! ⚡ Changes synced instantly.');
+    } else {
+      await Api.post('/fleet/vehicles', body);
+      Toast.success('Vehicle registered!');
+    }
+    closePanel();
+    await loadVehicles();
+    await loadDrivers();
+  } catch (err) {
+    errMsg.textContent = err.message;
+    errEl.style.display = 'flex';
+  } finally {
+    document.getElementById('save-btn').disabled = false;
+    document.getElementById('save-btn-text').style.display = 'inline';
+    document.getElementById('save-spinner').style.display = 'none';
+  }
+}
+
+/* ─── Tab helpers ──────────────────────────────────────────────────── */
+function showFleetTab() {
+  document.getElementById('fleet-tab').style.display   = '';
+  document.getElementById('drivers-tab').style.display = 'none';
+  document.getElementById('page-title').textContent    = 'Fleet Management';
+  document.getElementById('add-vehicle-btn').style.display = '';
+  document.getElementById('nav-fleet').classList.add('active');
+  document.getElementById('nav-drivers').classList.remove('active');
+}
+function showDriversTab() {
+  document.getElementById('fleet-tab').style.display   = 'none';
+  document.getElementById('drivers-tab').style.display = '';
+  document.getElementById('page-title').textContent    = 'Driver Roster';
+  document.getElementById('add-vehicle-btn').style.display = 'none';
+  document.getElementById('nav-fleet').classList.remove('active');
+  document.getElementById('nav-drivers').classList.add('active');
+}
+
+/* ─── Panel helpers ────────────────────────────────────────────────── */
+function showPanel()  { document.getElementById('edit-panel').style.display = 'block'; document.getElementById('edit-panel').scrollIntoView({behavior:'smooth',block:'start'}); }
+function closePanel() { document.getElementById('edit-panel').style.display = 'none'; resetForm(); }
+function resetForm()  { document.getElementById('vehicle-form').reset(); document.getElementById('form-error').style.display = 'none'; }
+
+/* ─── Utility ──────────────────────────────────────────────────────── */
+function esc(str) { if (!str) return ''; const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+function initials(name) { return (name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2); }
+</script>
+</body>
+</html>

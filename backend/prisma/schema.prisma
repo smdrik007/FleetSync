@@ -1,0 +1,110 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Institution (Tenant) ───────────────────────────────────────────
+model Institution {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users    User[]
+  vehicles Vehicle[]
+
+  @@map("institutions")
+}
+
+// ─── User ───────────────────────────────────────────────────────────
+model User {
+  id            String   @id @default(uuid())
+  institutionId String
+  name          String
+  email         String
+  phone         String?
+  role          UserRole
+  passwordHash  String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  institution     Institution @relation(fields: [institutionId], references: [id])
+  assignedVehicle Vehicle?    @relation("DriverVehicle")
+  trips           Trip[]
+
+  @@unique([institutionId, email])
+  @@map("users")
+}
+
+enum UserRole {
+  AUTHORITY
+  DRIVER
+  PASSENGER
+}
+
+// ─── Vehicle ────────────────────────────────────────────────────────
+model Vehicle {
+  id               String        @id @default(uuid())
+  institutionId    String
+  vehicleNumber    String
+  plateNumber      String
+  model            String?
+  capacity         Int?
+  currentStatus    VehicleStatus @default(INACTIVE)
+  assignedRoute    String        @default("")
+  assignedDriverId String?       @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  institution    Institution @relation(fields: [institutionId], references: [id])
+  assignedDriver User?       @relation("DriverVehicle", fields: [assignedDriverId], references: [id])
+  trips          Trip[]
+
+  // Last known GPS position (overwritten on each ping — no history)
+  lastLatitude   Float?
+  lastLongitude  Float?
+  lastAccuracy   Float?
+  lastPositionAt DateTime?
+
+  @@unique([institutionId, plateNumber])
+  @@unique([institutionId, vehicleNumber])
+  @@map("vehicles")
+}
+
+enum VehicleStatus {
+  ACTIVE
+  ON_TRIP
+  MAINTENANCE
+  INACTIVE
+}
+
+// ─── Trip ───────────────────────────────────────────────────────────
+model Trip {
+  id        String     @id @default(uuid())
+  vehicleId String
+  driverId  String
+  status    TripStatus @default(IN_PROGRESS)
+  startedAt DateTime   @default(now())
+  endedAt   DateTime?
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+  driver  User    @relation(fields: [driverId], references: [id])
+
+  @@map("trips")
+}
+
+enum TripStatus {
+  IN_PROGRESS
+  COMPLETED
+}

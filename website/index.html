@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FleetSync — Sign In</title>
+  <meta name="description" content="Sign in to FleetSync — multi-tenant vehicle management and live tracking platform." />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ─── Login page layout ─ */
+    body {
+      display:         flex;
+      align-items:     center;
+      justify-content: center;
+      min-height:      100vh;
+      background:      radial-gradient(ellipse at 20% 50%, rgba(79,142,247,.07) 0%, transparent 60%),
+                       radial-gradient(ellipse at 80% 20%, rgba(124,92,252,.06) 0%, transparent 55%),
+                       var(--bg);
+      padding:         24px;
+    }
+
+    .login-shell {
+      display:        grid;
+      grid-template-columns: 1fr 420px;
+      gap:            48px;
+      align-items:    center;
+      width:          100%;
+      max-width:      900px;
+    }
+
+    /* ─── Left brand panel ─── */
+    .brand-panel { padding: 0 16px; }
+
+    .brand-logo {
+      font-size:   2.4rem;
+      font-weight: 900;
+      color:       var(--accent);
+      letter-spacing: -1px;
+      margin-bottom: 12px;
+    }
+    .brand-logo span { color: var(--accent2); }
+
+    .brand-tagline {
+      font-size:   1.05rem;
+      font-weight: 600;
+      color:       var(--text);
+      margin-bottom: 8px;
+    }
+
+    .brand-sub {
+      font-size:   .87rem;
+      color:       var(--muted);
+      line-height: 1.7;
+      max-width:   340px;
+    }
+
+    .brand-features {
+      list-style:  none;
+      margin-top:  24px;
+      display:     flex;
+      flex-direction: column;
+      gap:         10px;
+    }
+    .brand-features li {
+      display:     flex;
+      align-items: flex-start;
+      gap:         10px;
+      font-size:   .84rem;
+      color:       var(--text-2);
+    }
+    .brand-features li::before {
+      content:   '→';
+      color:     var(--accent);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* ─── Login card ─── */
+    .login-card {
+      background:    var(--surface);
+      border:        1px solid var(--border);
+      border-radius: 18px;
+      padding:       36px 32px;
+      box-shadow:    var(--shadow);
+    }
+
+    .login-title {
+      font-size:   1.2rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .login-sub {
+      font-size: .82rem;
+      color:     var(--muted);
+      margin-bottom: 24px;
+    }
+
+    .divider {
+      height:     1px;
+      background: var(--border);
+      margin:     20px 0;
+    }
+
+    .demo-table { width:100%; border-collapse:collapse; font-size:.74rem; }
+    .demo-table th { color:var(--muted); padding:4px 6px; text-align:left; font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+    .demo-table td { padding:5px 6px; color:var(--text-2); border-top:1px solid var(--border); }
+    .demo-table td:first-child { font-weight:600; color:var(--accent); }
+
+    @media (max-width: 700px) {
+      .login-shell { grid-template-columns: 1fr; }
+      .brand-panel { display:none; }
+    }
+  </style>
+</head>
+<body>
+
+<main class="login-shell" role="main">
+
+  <!-- ─── Brand panel ─── -->
+  <div class="brand-panel">
+    <div class="brand-logo">Fleet<span>Sync</span></div>
+    <div class="brand-tagline">Vehicle Management & Live Tracking</div>
+    <div class="brand-sub">Multi-tenant SaaS platform for any organization — track your fleet in real time, assign drivers instantly, and empower passengers with live bus locations.</div>
+    <ul class="brand-features">
+      <li>Hardware-free GPS tracking via browser</li>
+      <li>Instant synchronization — changes reflect in &lt;1 second</li>
+      <li>Driver privacy protected — zero off-duty tracking</li>
+      <li>Live route milestones parsed automatically</li>
+      <li>Graceful signal fallback with "Last Seen" badge</li>
+    </ul>
+  </div>
+
+  <!-- ─── Login card ─── -->
+  <div class="login-card">
+    <h1 class="login-title">Sign In</h1>
+    <p class="login-sub">Select your institution, then enter your credentials.</p>
+
+    <div id="login-error" class="alert alert-danger" style="display:none;" role="alert">
+      <span class="alert-icon">❌</span>
+      <span id="login-error-msg">Invalid credentials.</span>
+    </div>
+
+    <form id="login-form" novalidate>
+
+      <!-- Institution selector — FR-AUTH-01 -->
+      <div class="form-group">
+        <label class="form-label" for="institution">Institution</label>
+        <select class="form-select" id="institution" name="institution" required>
+          <option value="">Loading institutions…</option>
+        </select>
+        <div class="form-hint">Choose your institution from the list.</div>
+      </div>
+
+      <!-- Email — FR-AUTH-02 -->
+      <div class="form-group">
+        <label class="form-label" for="email">Email</label>
+        <input
+          class="form-input" type="email" id="email" name="email"
+          placeholder="you@institution.edu" autocomplete="email" required
+        />
+      </div>
+
+      <!-- Password — FR-AUTH-02 -->
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <input
+          class="form-input" type="password" id="password" name="password"
+          placeholder="••••••••" autocomplete="current-password" required
+        />
+      </div>
+
+      <button class="btn btn-primary btn-xl" type="submit" id="login-btn">
+        <span id="login-btn-text">Sign In →</span>
+        <span id="login-spinner" class="spinner" style="display:none;"></span>
+      </button>
+
+    </form>
+
+    <div class="divider"></div>
+
+    <!-- Demo credentials -->
+    <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Demo Accounts (password: demo1234)</div>
+    <table class="demo-table">
+      <thead><tr><th>Role</th><th>Institution</th><th>Email</th></tr></thead>
+      <tbody>
+        <tr><td>🛡️ Authority</td><td>Khulna University</td><td>authority@ku.edu.bd</td></tr>
+        <tr><td>🚌 Driver</td><td>Khulna University</td><td>rahim@ku.edu.bd</td></tr>
+        <tr><td>👤 Passenger</td><td>Khulna University</td><td>passenger@ku.edu.bd</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</main>
+
+<script src="app.js"></script>
+<script>
+(async function init() {
+  // Redirect if already logged in
+  if (Auth.isLoggedIn()) {
+    const role = Auth.role();
+    const map = { AUTHORITY: 'authority/index.html', DRIVER: 'driver/index.html', PASSENGER: 'passenger/index.html' };
+    window.location.href = map[role] || 'index.html';
+    return;
+  }
+
+  // Load institutions — FR-AUTH-01
+  try {
+    const institutions = await Api.get('/institutions');
+    const sel = document.getElementById('institution');
+    sel.innerHTML = '<option value="">— Select Institution —</option>';
+    institutions.forEach((inst) => {
+      const opt = document.createElement('option');
+      opt.value       = inst.id;
+      opt.textContent = inst.name;
+      sel.appendChild(opt);
+    });
+  } catch (e) {
+    console.error('Failed to load institutions:', e);
+    document.getElementById('institution').innerHTML = '<option value="">Failed to load institutions</option>';
+  }
+
+  // Login form submit — FR-AUTH-02, FR-AUTH-03
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const institutionId = document.getElementById('institution').value;
+    const email         = document.getElementById('email').value.trim();
+    const password      = document.getElementById('password').value;
+    const errEl         = document.getElementById('login-error');
+    const errMsgEl      = document.getElementById('login-error-msg');
+    const btn           = document.getElementById('login-btn');
+    const btnText       = document.getElementById('login-btn-text');
+    const spinner       = document.getElementById('login-spinner');
+
+    // Client validation
+    errEl.style.display = 'none';
+    if (!institutionId) { errMsgEl.textContent = 'Please select an institution.'; errEl.style.display = 'flex'; return; }
+    if (!email)         { errMsgEl.textContent = 'Please enter your email.';       errEl.style.display = 'flex'; return; }
+    if (!password)      { errMsgEl.textContent = 'Please enter your password.';    errEl.style.display = 'flex'; return; }
+
+    // Show spinner
+    btn.disabled = true; btnText.style.display = 'none'; spinner.style.display = 'block';
+
+    try {
+      const data = await Api.post('/auth/login', { institutionId, email, password });
+      Auth.save(data.token, data.user);
+      // Redirect by role — FR-AUTH-03
+      const redirectMap = { AUTHORITY: 'authority/index.html', DRIVER: 'driver/index.html', PASSENGER: 'passenger/index.html' };
+      window.location.href = redirectMap[data.user.role] || 'index.html';
+    } catch (err) {
+      errMsgEl.textContent    = err.message || 'Login failed. Please try again.';
+      errEl.style.display     = 'flex';
+      btn.disabled            = false;
+      btnText.style.display   = 'inline';
+      spinner.style.display   = 'none';
+    }
+  });
+})();
+</script>
+</body>
+</html>

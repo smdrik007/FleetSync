@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FleetSync — Driver Console</title>
+  <meta name="description" content="FleetSync driver console — view your assignment, start and end trips, and broadcast your live location." />
+  <link rel="stylesheet" href="../style.css" />
+  <style>
+    /* Mobile-first layout */
+    body {
+      max-width: 480px;
+      margin:    0 auto;
+      padding:   0;
+      min-height:100vh;
+    }
+
+    .driver-topbar {
+      display:       flex;
+      align-items:   center;
+      gap:           10px;
+      padding:       14px 16px;
+      background:    var(--surface);
+      border-bottom: 1px solid var(--border);
+      position:      sticky;
+      top:           0;
+      z-index:       50;
+    }
+    .driver-topbar-brand { font-size:.95rem; font-weight:800; color:var(--accent); }
+    .driver-topbar-brand span { color:var(--accent2); }
+
+    .driver-content { padding: 16px; }
+
+    /* Assignment card */
+    .assignment-card {
+      background:    var(--surface2);
+      border:        1.5px solid var(--green-bd);
+      border-radius: var(--radius-lg);
+      padding:       18px;
+      margin-bottom: 14px;
+    }
+    .assignment-card.no-trip { border-color:var(--border); }
+
+    .vehicle-number { font-size:1.5rem; font-weight:900; letter-spacing:-.5px; }
+    .vehicle-plate  { font-size:.78rem; color:var(--muted); margin-top:2px; }
+
+    /* Trip button — large touch target (FR-SRS: 56x56px min) */
+    .trip-btn {
+      width:       100%;
+      height:      60px;
+      font-size:   1.1rem;
+      font-weight: 800;
+      border-radius: 12px;
+      border:      none;
+      cursor:      pointer;
+      display:     flex;
+      align-items: center;
+      justify-content:center;
+      gap:         10px;
+      transition:  var(--tx);
+      letter-spacing:.3px;
+      margin-bottom:10px;
+    }
+    .trip-btn:active { transform: scale(.97); }
+    .trip-btn-start  { background:var(--green); color:#fff; }
+    .trip-btn-start:hover  { filter:brightness(1.08); }
+    .trip-btn-end    { background:var(--red);   color:#fff; }
+    .trip-btn-end:hover    { filter:brightness(1.08); }
+    .trip-btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+
+    /* GPS coords display */
+    .gps-coords {
+      background:    var(--bg);
+      border:        1px solid var(--border);
+      border-radius: 8px;
+      padding:       10px 12px;
+      font-size:     .74rem;
+      color:         var(--muted);
+      font-family:   monospace;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size:.72rem;
+      text-transform:uppercase;
+      letter-spacing:1px;
+      color:var(--muted);
+      font-weight:700;
+      margin-bottom:8px;
+    }
+
+    .sign-out-row {
+      display:flex;
+      justify-content:center;
+      padding:16px 0 24px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Topbar ─── -->
+<header class="driver-topbar">
+  <div class="driver-topbar-brand">Fleet<span>Sync</span></div>
+  <span style="font-size:.82rem;">Driver Console</span>
+  <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+    <div id="ws-badge" class="badge badge-muted" style="font-size:.66rem;">Connecting…</div>
+    <button class="btn btn-ghost btn-sm" id="logout-btn">Sign Out</button>
+  </div>
+</header>
+
+<main class="driver-content">
+
+  <!-- Live GPS banner — shown only during active trip -->
+  <div id="live-banner" class="alert alert-live" style="display:none;" role="status" aria-live="polite">
+    <span class="pulse-dot"></span>
+    <span>🔴 Live Location Sharing is ACTIVE</span>
+  </div>
+
+  <!-- Reassignment alert — shown when Authority pushes a new assignment -->
+  <div id="reassign-alert" class="alert alert-purple" style="display:none;" role="alert">
+    <span class="alert-icon">🔔</span>
+    <div>
+      <strong>Assignment Updated</strong>
+      <div id="reassign-msg" style="font-size:.8rem;margin-top:2px;"></div>
+      <button class="btn btn-outline btn-sm mt-2" onclick="dismissReassign()">Dismiss</button>
+    </div>
+  </div>
+
+  <!-- Assignment card -->
+  <div id="assignment-card" class="assignment-card" style="display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div>
+        <div class="section-title">Your Assignment</div>
+        <div class="vehicle-number" id="vehicle-number">—</div>
+        <div class="vehicle-plate" id="vehicle-plate">—</div>
+      </div>
+      <div id="vehicle-status-badge"></div>
+    </div>
+
+    <!-- Route stepper -->
+    <div class="section-title" style="margin-top:12px;">Route</div>
+    <div id="route-stepper" style="margin-bottom:16px;min-height:28px;"></div>
+
+    <!-- GPS coords (shown during active trip) -->
+    <div id="gps-coords-wrap" style="display:none;">
+      <div class="gps-coords" id="gps-coords">📍 Waiting for GPS…</div>
+    </div>
+
+    <!-- Trip control buttons -->
+    <button id="start-trip-btn" class="trip-btn trip-btn-start" style="display:none;" aria-label="Start Trip">
+      ▶ Start Trip
+    </button>
+    <button id="end-trip-btn" class="trip-btn trip-btn-end" style="display:none;" aria-label="End Trip">
+      ⏹ End Trip
+    </button>
+    <div id="trip-hint" class="text-xs text-muted text-center" style="margin-top:4px;"></div>
+  </div>
+
+  <!-- No assignment state -->
+  <div id="no-assignment" style="display:none;">
+    <div class="empty-state" style="padding:60px 24px;">
+      <div class="empty-state-icon">🚌</div>
+      <div class="empty-state-title">No Vehicle Assigned</div>
+      <div class="empty-state-sub">No vehicle currently assigned by Transportation Pool. Please wait for your assignment.</div>
+    </div>
+  </div>
+
+  <!-- Loading state -->
+  <div id="loading-state" style="padding:60px 0;">
+    <div class="empty-state">
+      <div class="spinner" style="width:32px;height:32px;border-width:3px;"></div>
+    </div>
+  </div>
+
+  <div class="sign-out-row">
+    <button class="btn btn-outline btn-sm" id="logout-btn2">Sign Out</button>
+  </div>
+
+</main>
+
+<div id="toast-container"></div>
+
+<script src="../app.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   Driver Console
+   ═══════════════════════════════════════════════════════════════════ */
+
+let _activeTrip   = null;
+let _vehicle      = null;
+let _geoWatchId   = null;
+
+(async function init() {
+  if (!Auth.require('DRIVER')) return;
+
+  document.getElementById('logout-btn').onclick  = signOut;
+  document.getElementById('logout-btn2').onclick = signOut;
+  document.getElementById('start-trip-btn').onclick = startTrip;
+  document.getElementById('end-trip-btn').onclick   = endTrip;
+
+  // WebSocket
+  WsManager.connect();
+  WsManager.on('connected', () => {
+    document.getElementById('ws-badge').className   = 'badge badge-green';
+    document.getElementById('ws-badge').textContent = '⚡ Live';
+  });
+
+  // Listen for driver reassignment (FR-DRV-04)
+  WsManager.on('vehicle.driver_assigned', (data) => {
+    const myId = Auth.user()?.id;
+    if (data.newDriver?.id === myId || data.previousDriverId === myId) {
+      showReassignAlert(data);
+      loadAssignment();
+    }
+  });
+
+  // Listen for route updates (FR-DRV-01 live update)
+  WsManager.on('vehicle.route_updated', (data) => {
+    if (_vehicle && data.vehicleId === _vehicle.id) {
+      _vehicle.assignedRoute = data.assignedRoute;
+      renderStepper(document.getElementById('route-stepper'), parseRoute(data.assignedRoute), -1);
+      Toast.info('Route updated by Transportation Pool.');
+    }
+  });
+
+  await loadAssignment();
+})();
+
+async function loadAssignment() {
+  showState('loading');
+  try {
+    const data = await Api.get('/driver/me/assignment');
+    _vehicle    = data.vehicle;
+    _activeTrip = data.activeTrip;
+    if (_activeTrip) {
+      _activeTrip.tripId = _activeTrip.tripId || _activeTrip.id;
+      _activeTrip.id     = _activeTrip.id || _activeTrip.tripId;
+    }
+
+    if (!data.assigned) {
+      showState('no-assignment');
+      return;
+    }
+
+    renderAssignment();
+    showState('assignment');
+
+    if (_activeTrip?.status === 'IN_PROGRESS') {
+      startGps(); // resume GPS if trip was already active (page reload)
+    }
+  } catch (err) {
+    Toast.error('Failed to load assignment: ' + err.message);
+    showState('no-assignment');
+  }
+}
+
+function renderAssignment() {
+  document.getElementById('vehicle-number').textContent = _vehicle.vehicleNumber;
+  document.getElementById('vehicle-plate').textContent  = `${_vehicle.plateNumber} · Cap. ${_vehicle.capacity || '—'}`;
+  document.getElementById('vehicle-status-badge').innerHTML = statusBadge(_vehicle.currentStatus);
+
+  const stops = parseRoute(_vehicle.assignedRoute);
+  renderStepper(document.getElementById('route-stepper'), stops, -1);
+
+  // Show correct buttons
+  const onTrip = _activeTrip?.status === 'IN_PROGRESS';
+  document.getElementById('start-trip-btn').style.display = onTrip ? 'none' : 'flex';
+  document.getElementById('end-trip-btn').style.display   = onTrip ? 'flex' : 'none';
+  document.getElementById('live-banner').style.display    = onTrip ? 'flex' : 'none';
+  document.getElementById('gps-coords-wrap').style.display= onTrip ? 'block' : 'none';
+
+  document.getElementById('trip-hint').textContent = onTrip
+    ? 'GPS terminates immediately on End Trip.'
+    : 'GPS will activate upon starting the trip.';
+}
+
+/* ─── Trip controls ────────────────────────────────────────────────── */
+async function startTrip() {
+  const btn = document.getElementById('start-trip-btn');
+  btn.disabled = true;
+  try {
+    const trip = await Api.post('/driver/trips/start', {});
+    _activeTrip = trip;
+    if (_activeTrip) {
+      _activeTrip.tripId = _activeTrip.tripId || _activeTrip.id;
+      _activeTrip.id     = _activeTrip.id || _activeTrip.tripId;
+    }
+    _vehicle.currentStatus = 'ON_TRIP';
+    renderAssignment();
+    startGps();
+    Toast.success('Trip started! GPS is now broadcasting.');
+  } catch (err) {
+    Toast.error(err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function endTrip() {
+  const tripId = _activeTrip?.tripId || _activeTrip?.id || 'current';
+  const btn = document.getElementById('end-trip-btn');
+  btn.disabled = true;
+  try {
+    await Api.post(`/driver/trips/${tripId}/end`, {});
+    stopGps(); // FR-DRV-03: immediate GPS termination
+    _activeTrip = null;
+    if (_vehicle) _vehicle.currentStatus = 'ACTIVE';
+    renderAssignment();
+    Toast.success('Trip ended. GPS stopped.');
+  } catch (err) {
+    Toast.error(err.message || 'Failed to end trip.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+/* ─── GPS Broadcasting (FR-DRV-03) ────────────────────────────────── */
+function startGps() {
+  if (!navigator.geolocation) {
+    Toast.warning('Geolocation not supported by this browser.');
+    return;
+  }
+  _geoWatchId = navigator.geolocation.watchPosition(
+    (pos) => onGpsPosition(pos),
+    (err) => console.warn('[GPS error]', err.message),
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+  document.getElementById('live-banner').style.display     = 'flex';
+  document.getElementById('gps-coords-wrap').style.display = 'block';
+}
+
+function stopGps() {
+  if (_geoWatchId !== null) {
+    navigator.geolocation.clearWatch(_geoWatchId); // FR-DRV-03: immediate clear
+    _geoWatchId = null;
+  }
+  document.getElementById('live-banner').style.display     = 'none';
+  document.getElementById('gps-coords-wrap').style.display = 'none';
+}
+
+async function onGpsPosition(pos) {
+  const tripId = _activeTrip?.tripId || _activeTrip?.id;
+  if (!tripId) { stopGps(); return; }
+
+  const { latitude, longitude, accuracy, heading, speed } = pos.coords;
+
+  document.getElementById('gps-coords').textContent =
+    `📍 ${latitude.toFixed(6)}° N, ${longitude.toFixed(6)}° E · Accuracy: ${Math.round(accuracy)}m`;
+
+  try {
+    await Api.post(`/driver/trips/${tripId}/location`, {
+      latitude, longitude,
+      accuracy: accuracy ?? null,
+      heading:  heading  ?? null,
+      speed:    speed    ?? null,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    // Trip might have been ended externally — stop GPS
+    if (err.code === 'TRIP_NOT_ACTIVE' || err.code === 'TRIP_NOT_FOUND') stopGps();
+  }
+}
+
+/* ─── Reassignment alert (FR-DRV-04) ──────────────────────────────── */
+function showReassignAlert(data) {
+  const msg = data.newDriver
+    ? `You have been assigned to a vehicle. Check your updated assignment.`
+    : `Your vehicle assignment has been removed by Transportation Pool.`;
+  document.getElementById('reassign-msg').textContent = msg;
+  document.getElementById('reassign-alert').style.display = 'flex';
+}
+function dismissReassign() {
+  document.getElementById('reassign-alert').style.display = 'none';
+}
+
+/* ─── UI state helpers ─────────────────────────────────────────────── */
+function showState(state) {
+  document.getElementById('loading-state').style.display   = state === 'loading'       ? 'block' : 'none';
+  document.getElementById('assignment-card').style.display = state === 'assignment'    ? 'block' : 'none';
+  document.getElementById('no-assignment').style.display   = state === 'no-assignment' ? 'block' : 'none';
+}
+
+function signOut() { stopGps(); Auth.clear(); window.location.href = '../index.html'; }
+</script>
+</body>
+</html>
