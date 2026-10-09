@@ -1,0 +1,276 @@
+erDiagram
+    %% ===== Tenancy, Users and Access =====
+    institutions ||--o{ subscriptions : "subscribes"
+    institutions ||--o{ users : "employs / registers"
+    institutions ||--o{ drivers : "employs"
+    institutions ||--o{ roles : "defines"
+    institutions ||--o{ user_roles : "scopes"
+
+    users |o--o| drivers : "has driver profile"
+    users ||--o{ user_roles : "is granted"
+    roles ||--o{ user_roles : "assigned via"
+    roles ||--o{ role_permissions : "grants"
+    permissions ||--o{ role_permissions : "granted via"
+
+    %% ===== Fleet and Assignments =====
+    institutions |o--o{ vehicle_models : "adds custom"
+    institutions ||--o{ vehicles : "owns"
+    institutions ||--o{ routes : "manages"
+    institutions ||--o{ stops : "defines"
+    institutions ||--o{ route_stops : "scopes"
+
+    vehicle_models ||--o{ vehicles : "classifies"
+    drivers |o--o{ vehicles : "is assigned to"
+    routes |o--o{ vehicles : "is assigned to"
+    routes ||--o{ route_stops : "contains"
+    stops ||--o{ route_stops : "appears in"
+
+    %% ===== Tracking and Trips =====
+    institutions ||--o{ devices : "owns"
+    institutions ||--o{ trips : "runs"
+    institutions ||--o{ gps_logs : "owns"
+    institutions ||--o{ vehicle_latest_position : "owns"
+
+    vehicles ||--o{ devices : "carries"
+    vehicles ||--o{ trips : "performs"
+    drivers ||--o{ trips : "drives"
+    routes |o--o{ trips : "is followed by"
+
+    trips |o--o{ gps_logs : "records"
+    vehicles ||--o{ gps_logs : "emits"
+    devices ||--o{ gps_logs : "reports"
+
+    vehicles ||--o| vehicle_latest_position : "has live state"
+    devices ||--o{ vehicle_latest_position : "last reported by"
+    trips |o--o{ vehicle_latest_position : "current trip"
+
+    %% ===== Maintenance, Fuel and Notifications =====
+    institutions ||--o{ maintenance_records : "owns"
+    institutions ||--o{ fuel_logs : "owns"
+    institutions ||--o{ notifications : "owns"
+
+    vehicles ||--o{ maintenance_records : "serviced in"
+    vehicles ||--o{ fuel_logs : "refueled in"
+    users ||--o{ fuel_logs : "logs"
+    users ||--o{ notifications : "receives"
+
+    %% ===== Platform-level (not tenant-scoped) =====
+    platform_admins {
+        uuid id PK
+        string name
+        string email UK
+        string password_hash
+        string admin_level
+        boolean is_active
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    %% ===== Entities =====
+    institutions {
+        uuid id PK
+        string name
+        string slug UK
+        string logo_url
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    subscriptions {
+        uuid id PK
+        uuid institution_id FK
+        string plan_name
+        string status
+        date start_date
+        date end_date
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    users {
+        uuid id PK "UNIQUE with institution_id"
+        uuid institution_id FK
+        string name
+        string email UK
+        string phone
+        string password_hash
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    drivers {
+        uuid id PK "UNIQUE with institution_id"
+        uuid institution_id FK
+        uuid user_id FK, UK
+        string employee_code
+        string name
+        string phone
+        string license_number UK
+        string license_class
+        date license_expiry
+        string employment_status
+        date hired_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    roles {
+        uuid id PK "UNIQUE with institution_id"
+        uuid institution_id FK
+        string name UK
+        string description
+        boolean is_system
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    user_roles {
+        uuid user_id PK, FK
+        uuid role_id PK, FK
+        uuid institution_id FK
+        timestamptz assigned_at
+    }
+
+    permissions {
+        uuid id PK
+        string code UK
+        string description
+    }
+
+    role_permissions {
+        uuid role_id PK, FK
+        uuid permission_id PK, FK
+    }
+
+    vehicle_models {
+        uuid id PK
+        uuid institution_id FK "nullable, NULL = global catalog"
+        string make
+        string model
+        int year
+        string fuel_type
+        int capacity
+    }
+
+    vehicles {
+        uuid id PK "UNIQUE with institution_id"
+        uuid institution_id FK
+        uuid model_id FK
+        uuid assigned_driver_id FK "nullable"
+        uuid assigned_route_id FK "nullable"
+        string vehicle_number UK
+        string plate_number UK
+        string current_status
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    routes {
+        uuid id PK "UNIQUE with institution_id"
+        uuid institution_id FK
+        string name UK
+        string description
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    stops {
+        uuid id PK "UNIQUE with institution_id"
+        uuid institution_id FK
+        string name
+        float latitude
+        float longitude
+        timestamptz created_at
+    }
+
+    route_stops {
+        uuid route_id PK, FK
+        uuid stop_id PK, FK
+        uuid institution_id FK
+        int stop_order UK
+    }
+
+    devices {
+        uuid id PK "UNIQUE with institution_id"
+        uuid institution_id FK
+        uuid vehicle_id FK
+        string device_type
+        string imei UK
+        string sim_iccid
+        string firmware_version
+        string status
+        timestamptz installed_at
+        timestamptz last_seen_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    trips {
+        uuid id PK "UNIQUE with institution_id"
+        uuid institution_id FK
+        uuid vehicle_id FK
+        uuid driver_id FK
+        uuid route_id FK "nullable"
+        string status
+        timestamptz started_at
+        timestamptz ended_at
+    }
+
+    gps_logs {
+        bigint id PK "identity column"
+        timestamptz recorded_at PK "partition key"
+        uuid institution_id FK
+        uuid vehicle_id FK
+        uuid device_id FK
+        uuid trip_id FK "nullable"
+        geography location
+        float accuracy
+        float speed
+        float heading
+        boolean ignition_on
+        timestamptz received_at
+    }
+
+    vehicle_latest_position {
+        uuid vehicle_id PK, FK
+        uuid institution_id FK
+        uuid device_id FK
+        uuid trip_id FK "nullable"
+        geography location
+        float speed
+        float heading
+        boolean ignition_on
+        timestamptz recorded_at
+        timestamptz updated_at
+    }
+
+    maintenance_records {
+        uuid id PK
+        uuid institution_id FK
+        uuid vehicle_id FK
+        string description
+        numeric cost
+        date service_date
+        string status
+        timestamptz created_at
+    }
+
+    fuel_logs {
+        uuid id PK
+        uuid institution_id FK
+        uuid vehicle_id FK
+        uuid logged_by_user_id FK
+        numeric volume
+        numeric total_cost
+        date log_date
+    }
+
+    notifications {
+        uuid id PK
+        uuid institution_id FK
+        uuid user_id FK
+        string title
+        string message
+        boolean is_read
+        timestamptz created_at
+    }

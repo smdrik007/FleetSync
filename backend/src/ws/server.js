@@ -17,6 +17,8 @@
 
 const WebSocket = require('ws');
 const { verifyToken } = require('../middleware/auth');
+const prisma = require('../db/client');
+const { isUuid } = require('../lib/http');
 
 /** @type {Map<string, Set<WebSocket>>} */
 const rooms = new Map();
@@ -86,6 +88,13 @@ function emitLocationUpdate({ data, vehicleId, previousDriverId, institutionId }
 }
 
 /**
+ * Push an event to every live socket of one user (any role) — e.g. 'notification.new'.
+ */
+function emitToUser(userId, event, data) {
+  broadcast(getRoomKey('user', userId), { event, data });
+}
+
+/**
  * Initialize the WebSocket server attached to the existing HTTP server.
  * @param {import('http').Server} httpServer
  */
@@ -113,6 +122,10 @@ function initWebSocket(httpServer) {
     const instRoom = getRoomKey('institution', institutionId);
     joinRoom(instRoom, ws);
 
+    // ── Join personal user room (notifications) ───────────────────────
+    const userRoom = getRoomKey('user', userId);
+    joinRoom(userRoom, ws);
+
     // ── Join personal driver room ────────────────────────────────────
     if (role === 'DRIVER') {
       joinRoom(getRoomKey('driver', userId), ws);
@@ -127,11 +140,20 @@ function initWebSocket(httpServer) {
 
       // Passengers subscribe to a specific vehicle room
       if (msg.action === 'watch_vehicle' && msg.vehicleId) {
-        const key = getRoomKey('vehicle', msg.vehicleId);
-        joinRoom(key, ws);
-        if (!ws._vehicleRooms) ws._vehicleRooms = new Set();
-        ws._vehicleRooms.add(key);
-        ws.send(JSON.stringify({ event: 'watching', data: { vehicleId: msg.vehicleId } }));
+        // Only vehicles of the caller's own institution may be watched.
+        const reject = () => ws.send(JSON.stringify({ event: 'error', data: { code: 'VEHICLE_NOT_FOUND', message: 'Vehicle not found.' } }));
+        if (!isUuid(msg.vehicleId)) { reject(); return; }
+        prisma.vehicle.findFirst({ where: { id: msg.vehicleId, institutionId }, select: { id: true } })
+          .then((v) => {
+            if (!v) { reject(); return; }
+            if (ws.readyState !== WebSocket.OPEN) return;
+            const key = getRoomKey('vehicle', v.id);
+            joinRoom(key, ws);
+            if (!ws._vehicleRooms) ws._vehicleRooms = new Set();
+            ws._vehicleRooms.add(key);
+            ws.send(JSON.stringify({ event: 'watching', data: { vehicleId: v.id } }));
+          })
+          .catch((err) => console.error('[WS watch_vehicle]', err.message));
       }
 
       if (msg.action === 'unwatch_vehicle' && msg.vehicleId) {
@@ -142,6 +164,7 @@ function initWebSocket(httpServer) {
     // ── Cleanup on disconnect ────────────────────────────────────────
     ws.on('close', () => {
       leaveRoom(instRoom, ws);
+      leaveRoom(userRoom, ws);
       if (role === 'DRIVER') leaveRoom(getRoomKey('driver', userId), ws);
       ws._vehicleRooms?.forEach((k) => leaveRoom(k, ws));
     });
@@ -153,4 +176,4 @@ function initWebSocket(httpServer) {
   return wss;
 }
 
-module.exports = { initWebSocket, emitVehicleEvent, emitLocationUpdate, getRoomKey, broadcast };
+module.exports = { initWebSocket, emitVehicleEvent, emitLocationUpdate, emitToUser, getRoomKey, broadcast };

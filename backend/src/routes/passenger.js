@@ -8,7 +8,9 @@
 
 const router = require('express').Router();
 const prisma = require('../db/client');
+const { Prisma } = require('@prisma/client');
 const { authenticate } = require('../middleware/auth');
+const { stopsByRoute } = require('../lib/routeStops');
 
 const PASS = authenticate('PASSENGER');
 
@@ -24,15 +26,42 @@ router.get('/vehicles', PASS, async (req, res, next) => {
       orderBy: { vehicleNumber: 'asc' },
       select: {
         id: true, vehicleNumber: true, plateNumber: true,
-        currentStatus: true, assignedRoute: true,
+        currentStatus: true, assignedRouteId: true, assignedRoute: { select: { name: true } },
         assignedDriver: { select: { id: true, name: true, phone: true } },
+        latestPosition: { select: { speed: true, heading: true, recordedAt: true } },
       },
     });
 
-    const data = vehicles.map((v) => ({
-      ...v,
-      selectable: v.currentStatus !== 'MAINTENANCE' && v.currentStatus !== 'INACTIVE',
-    }));
+    const vehicleIds = vehicles.map(v => v.id);
+    // Prisma.join([]) renders `IN ()`, which Postgres rejects — an empty fleet has no positions.
+    const locationsRaw = vehicleIds.length ? await prisma.$queryRaw`
+      SELECT vehicle_id, ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng 
+      FROM vehicle_latest_position 
+      WHERE institution_id = ${institutionId}::uuid AND vehicle_id::text IN (${Prisma.join(vehicleIds)})
+    ` : [];
+    const stops = await stopsByRoute(vehicles.map((v) => v.assignedRouteId));
+    const locMap = locationsRaw.reduce((acc, loc) => {
+      acc[loc.vehicle_id] = { lat: loc.lat, lng: loc.lng };
+      return acc;
+    }, {});
+
+    const data = vehicles.map((v) => {
+      const loc = locMap[v.id];
+      return {
+        ...v,
+        assignedRoute: v.assignedRoute?.name || null,
+        routeStops: stops.get(v.assignedRouteId) || [],
+        selectable: v.currentStatus !== 'maintenance' && v.currentStatus !== 'offline' && v.currentStatus !== 'retired',
+        lastKnownPosition: v.latestPosition ? {
+          latitude: loc?.lat ?? null,
+          longitude: loc?.lng ?? null,
+          speed: v.latestPosition.speed,
+          heading: v.latestPosition.heading,
+          updatedAt: v.latestPosition.recordedAt,
+          isStale: (Date.now() - new Date(v.latestPosition.recordedAt).getTime()) > (5 * 60 * 1000)
+        } : null,
+      };
+    });
 
     res.json({ success: true, data });
   } catch (err) { next(err); }
@@ -47,9 +76,9 @@ router.get('/vehicles/:vehicleId/status', PASS, async (req, res, next) => {
       where: { id: req.params.vehicleId, institutionId },
       select: {
         id: true, vehicleNumber: true, plateNumber: true,
-        currentStatus: true, assignedRoute: true,
+        currentStatus: true, assignedRouteId: true, assignedRoute: { select: { name: true } },
         assignedDriver: { select: { id: true, name: true, phone: true } },
-        lastLatitude: true, lastLongitude: true, lastAccuracy: true, lastPositionAt: true,
+        latestPosition: { select: { speed: true, heading: true, recordedAt: true } },
       },
     });
 
@@ -59,19 +88,29 @@ router.get('/vehicles/:vehicleId/status', PASS, async (req, res, next) => {
 
     // Find active trip
     const activeTrip = await prisma.trip.findFirst({
-      where: { vehicleId: vehicle.id, status: 'IN_PROGRESS' },
+      where: { vehicleId: vehicle.id, status: 'in_progress' },
       select: { id: true, startedAt: true, status: true },
     });
 
     // Build lastKnownPosition with isStale flag (FR-PAS-04)
+    // Note: lat/lng are retrieved via PostGIS ST_X/ST_Y — using speed/heading from Prisma
     let lastKnownPosition = null;
-    if (vehicle.lastLatitude !== null && vehicle.lastLongitude !== null) {
-      const age = Date.now() - new Date(vehicle.lastPositionAt).getTime();
+    if (vehicle.latestPosition) {
+      const locationsRaw = await prisma.$queryRaw`
+        SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng 
+        FROM vehicle_latest_position 
+        WHERE vehicle_id = ${req.params.vehicleId}::uuid
+      `;
+      const loc = locationsRaw[0];
+
+      const age = Date.now() - new Date(vehicle.latestPosition.recordedAt).getTime();
       lastKnownPosition = {
-        latitude:  vehicle.lastLatitude,
-        longitude: vehicle.lastLongitude,
-        accuracy:  vehicle.lastAccuracy,
-        updatedAt: vehicle.lastPositionAt,
+        latitude:  loc?.lat ?? null,
+        longitude: loc?.lng ?? null,
+        speed:    vehicle.latestPosition.speed,
+        heading:  vehicle.latestPosition.heading,
+        accuracy: null,
+        updatedAt: vehicle.latestPosition.recordedAt,
         isStale:   age > STALE_MS,
       };
     }
@@ -83,7 +122,8 @@ router.get('/vehicles/:vehicleId/status', PASS, async (req, res, next) => {
         vehicleNumber:  vehicle.vehicleNumber,
         plateNumber:    vehicle.plateNumber,
         currentStatus:  vehicle.currentStatus,
-        assignedRoute:  vehicle.assignedRoute,
+        assignedRoute:  vehicle.assignedRoute?.name || null,
+        routeStops:     (await stopsByRoute([vehicle.assignedRouteId])).get(vehicle.assignedRouteId) || [],
         assignedDriver: vehicle.assignedDriver,
         activeTrip,
         lastKnownPosition,

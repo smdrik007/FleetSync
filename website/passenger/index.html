@@ -1,396 +1,287 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FleetSync — Track My Bus</title>
   <meta name="description" content="Track your bus in real time — live map, route milestones, and driver contact." />
   <link rel="stylesheet" href="../style.css" />
-  <!-- Leaflet.js — FR-PAS-02 -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <style>
-    body { max-width:480px; margin:0 auto; padding:0; min-height:100vh; }
-
-    .pass-topbar {
-      display:flex; align-items:center; gap:10px;
-      padding:14px 16px;
-      background:var(--surface); border-bottom:1px solid var(--border);
-      position:sticky; top:0; z-index:50;
-    }
-    .pass-brand { font-size:.95rem; font-weight:800; color:var(--accent); }
-    .pass-brand span { color:var(--accent2); }
-
-    .pass-content { padding:16px; }
-
-    /* Map */
-    #map {
-      height:    220px;
-      width:     100%;
-      border-radius: var(--radius);
-      border:    1px solid var(--border);
-      margin-bottom: 12px;
-      z-index:   1;
-    }
-
-    /* Map overlay badges */
-    .map-overlay {
-      position:  absolute;
-      top:       10px; left:10px;
-      z-index:   400;
-    }
-    .map-overlay-right {
-      position:  absolute;
-      bottom:    10px; right:10px;
-      z-index:   400;
-      font-size: .66rem;
-      color:     var(--muted);
-      background:rgba(13,15,24,.7);
-      padding:   3px 8px;
-      border-radius:4px;
-    }
-    .map-wrap { position:relative; margin-bottom:14px; }
-
-    /* Driver contact card */
-    .driver-contact {
-      display:       flex;
-      align-items:   center;
-      gap:           12px;
-      background:    var(--surface2);
-      border:        1px solid var(--border);
-      border-radius: var(--radius);
-      padding:       12px 14px;
-    }
-    .driver-info { flex:1; min-width:0; }
-    .driver-info-name { font-size:.9rem; font-weight:700; }
-    .driver-info-meta { font-size:.74rem; color:var(--muted); }
-
-    /* Not-started info card */
-    .not-started-card {
-      background:    rgba(79,142,247,.06);
-      border:        1px solid rgba(79,142,247,.18);
-      border-radius: var(--radius);
-      padding:       16px;
-      text-align:    center;
-      margin-bottom: 12px;
-    }
-    .not-started-icon { font-size:1.6rem; margin-bottom:6px; }
-    .not-started-title{ font-size:.9rem; font-weight:700; margin-bottom:4px; }
-    .not-started-route{ font-size:.78rem; color:var(--text-2); }
-
-    .section-title {
-      font-size:.68rem; text-transform:uppercase;
-      letter-spacing:1px; color:var(--muted); font-weight:700;
-      margin-bottom:8px;
-    }
-
-    .sign-out-row { display:flex; justify-content:center; padding:16px 0 24px; }
-  </style>
+  <script src="../app.js"></script>
 </head>
-<body>
+<body class="m-app">
 
-<!-- Topbar -->
-<header class="pass-topbar">
-  <div class="pass-brand">Fleet<span>Sync</span></div>
-  <span style="font-size:.82rem;">Track My Bus</span>
-  <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
-    <div id="live-badge" class="badge badge-muted" style="font-size:.66rem;">Connecting…</div>
-    <button class="btn btn-ghost btn-sm" id="logout-btn">Sign Out</button>
+<header class="m-top">
+  <div class="logo-mark" aria-hidden="true">FS</div>
+  <div class="m-title">Track my bus<small id="rider-name">&nbsp;</small></div>
+  <div class="m-actions">
+    <div class="ws-pill" role="status" aria-live="polite"><i class="dot-live off" id="ws-dot"></i><span id="ws-text">Connecting</span></div>
+    <button class="top-btn" id="theme-btn" type="button" aria-label="Toggle theme"></button>
+    <button class="top-btn" id="logout-btn" type="button" aria-label="Sign out"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg></button>
   </div>
 </header>
 
-<main class="pass-content">
+<main class="m-content">
 
-  <!-- Vehicle selector — FR-PAS-01 -->
-  <div class="form-group">
-    <label class="form-label" for="vehicle-select">Select Vehicle</label>
-    <select class="form-select" id="vehicle-select">
-      <option value="">Loading vehicles…</option>
-    </select>
+  <div class="form-group" style="margin:0">
+    <label class="form-label" for="vehicle-select">Choose a vehicle</label>
+    <select class="form-select" id="vehicle-select"><option value="">Loading vehicles…</option></select>
   </div>
 
-  <!-- Signal lost banner — FR-PAS-04 -->
-  <div id="signal-lost-banner" class="alert alert-warning" style="display:none;" role="status" aria-live="polite">
-    <span class="alert-icon">⚠️</span>
-    <span id="signal-lost-text">Signal Lost — Last updated just now</span>
+  <div id="signal-lost-banner" class="alert alert-warning hidden" role="status" aria-live="polite" style="margin:0">
+    <span class="alert-icon" aria-hidden="true">!</span><span id="signal-lost-text">Signal lost</span>
   </div>
 
-  <!-- Map — FR-PAS-02 -->
-  <div class="map-wrap">
-    <div id="map"></div>
-    <div class="map-overlay" id="map-live-badge"></div>
-    <div class="map-overlay-right">Leaflet.js · OpenStreetMap</div>
+  <div class="m-map" id="map-wrap">
+    <div id="map" style="height:100%;width:100%"></div>
+    <div class="m-map-badge" id="map-live-badge"></div>
   </div>
 
-  <!-- Not-started card (shown when status is ACTIVE but no trip) -->
-  <div id="not-started-card" class="not-started-card" style="display:none;">
-    <div class="not-started-icon">⏳</div>
-    <div class="not-started-title">Trip Has Not Started Yet</div>
-    <div id="not-started-route" class="not-started-route"></div>
-  </div>
-
-  <!-- Route stepper — FR-PAS-03 -->
-  <div id="stepper-wrap" style="display:none;">
-    <div class="section-title">Route Milestones</div>
-    <div id="route-stepper" style="margin-bottom:14px;"></div>
-  </div>
-
-  <!-- Driver contact card — FR-PAS-05 -->
-  <div id="driver-card" class="driver-contact" style="display:none;">
-    <div class="driver-avatar" id="driver-avatar">?</div>
-    <div class="driver-info">
-      <div class="driver-info-name" id="driver-name">—</div>
-      <div class="driver-info-meta" id="driver-meta">—</div>
+  <div id="vehicle-card" class="m-card hidden">
+    <div class="m-row">
+      <div>
+        <div class="m-label">Vehicle</div>
+        <div class="m-vehicle" id="v-number" style="font-size:1.5rem">—</div>
+        <div class="m-sub" id="v-plate"></div>
+      </div>
+      <div id="v-status"></div>
     </div>
-    <a id="call-btn" href="tel:" class="btn btn-success btn-sm">📞 Call</a>
+    <div id="not-started" class="alert alert-info hidden" style="margin:14px 0 0">
+      <span class="alert-icon" aria-hidden="true">i</span><span>This trip has not started yet. The map updates as soon as the driver begins.</span>
+    </div>
+    <div id="stepper-wrap" class="hidden" style="margin-top:16px">
+      <div class="m-label">Route milestones</div>
+      <div id="route-name" class="text-sm" style="margin-bottom:8px;color:var(--text-2)"></div>
+      <div id="route-stepper"></div>
+    </div>
   </div>
 
-  <div class="sign-out-row">
-    <button class="btn btn-outline btn-sm" id="logout-btn2">Sign Out</button>
+  <div id="driver-card" class="m-card m-contact hidden">
+    <div class="driver-avatar" id="driver-avatar">?</div>
+    <div class="grow">
+      <div style="font-size:.92rem;font-weight:700" id="driver-name">—</div>
+      <div class="text-xs text-muted" id="driver-meta">—</div>
+    </div>
+    <a id="call-btn" href="#" class="btn btn-success btn-sm">Call</a>
+  </div>
+
+  <div id="pick-hint" class="m-card m-hero">
+    <div class="empty-state-title">Pick a vehicle to follow</div>
+    <div class="empty-state-sub" style="margin:6px auto 0">Choose a bus above to see where it is right now, its route and who is driving.</div>
   </div>
 
 </main>
 
 <div id="toast-container"></div>
 
-<script src="../app.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════════
-   Passenger Portal
+   Passenger portal — live map, route milestones, driver contact
+   Status values follow the schema (lowercase). Stops come from route_stops.
    ═══════════════════════════════════════════════════════════════════ */
+const $ = (id) => document.getElementById(id);
+const STALE_MS = 30000;          // matches the server's LOCATION_STALE_MS default
+const SUN = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
+const MOON = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
 
-const STALE_MS = 30000; // match server env LOCATION_STALE_MS
-
-let _map            = null;
-let _marker         = null;
-let _selectedId     = null;
-let _lastUpdateAt   = null;
-let _staleTimer     = null;
-let _vehicles       = [];
+let map, marker, routeLayer;
+let selectedId = null, lastUpdateAt = null, staleTimer = null, current = null; // current = last status snapshot
+let vehicles = [];
 
 (async function init() {
   if (!Auth.require('PASSENGER')) return;
-
-  document.getElementById('logout-btn').onclick  = signOut;
-  document.getElementById('logout-btn2').onclick = signOut;
+  $('rider-name').textContent = Auth.user()?.name || '';
+  const paintTheme = () => { $('theme-btn').innerHTML = Theme.current() === 'light' ? MOON : SUN; };
+  $('theme-btn').addEventListener('click', () => { Theme.toggle(); paintTheme(); }); paintTheme();
+  $('logout-btn').onclick = signOut;
 
   initMap();
 
-  // WebSocket
   WsManager.connect();
-  WsManager.on('connected', () => {
-    document.getElementById('live-badge').className   = 'badge badge-green';
-    document.getElementById('live-badge').textContent = '⚡ Live';
-  });
-
-  WsManager.on('location.update',       onLocationUpdate);
+  const paintWs = (s) => { const on = s === 'connected'; $('ws-dot').className = `dot-live ${on ? '' : 'warn'}`; $('ws-text').textContent = on ? 'Live' : 'Reconnecting'; };
+  WsManager.on('status', paintWs); paintWs(WsManager.status);
+  WsManager.on('location.update', onLocationUpdate);
   WsManager.on('vehicle.status_changed', onStatusChanged);
-  WsManager.on('vehicle.route_updated',  onRouteUpdated);
-  WsManager.on('vehicle.driver_assigned',onDriverAssigned);
-  WsManager.on('trip.ended',             onTripEnded);
+  WsManager.on('vehicle.route_updated', () => selectedId && loadStatus(selectedId, { quiet: true }));
+  WsManager.on('vehicle.driver_assigned', (d) => { if (d.vehicleId === selectedId) loadStatus(selectedId, { quiet: true }); });
+  WsManager.on('trip.started', (d) => { if (d.vehicleId === selectedId) { Toast.info(`${d.vehicleNumber} has started its trip.`); loadStatus(selectedId, { quiet: true }); } });
+  WsManager.on('trip.ended', onTripEnded);
 
-  // Vehicle selector change
-  document.getElementById('vehicle-select').onchange = async function() {
-    const id = this.value;
-    if (_selectedId) WsManager.unwatchVehicle(_selectedId);
-    _selectedId = id || null;
+  $('vehicle-select').onchange = async function () {
+    if (selectedId) WsManager.unwatchVehicle(selectedId);
+    selectedId = this.value || null;
     resetView();
-    if (_selectedId) {
-      WsManager.watchVehicle(_selectedId);
-      await loadVehicleStatus(_selectedId);
-    }
+    if (selectedId) { WsManager.watchVehicle(selectedId); await loadStatus(selectedId); }
   };
 
   await loadVehicles();
 })();
 
-/* ─── Map init (Leaflet) ────────────────────────────────────────────── */
+/* ─── Map ──────────────────────────────────────────────────────────── */
 function initMap() {
-  // Centre on Bangladesh by default
-  _map = L.map('map', { zoomControl: true, attributionControl: true }).setView([23.685, 90.356], 8);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors',
-    maxZoom: 19,
-  }).addTo(_map);
+  map = L.map('map', { zoomControl: true }).setView([23.685, 90.356], 7);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 }).addTo(map);
+  routeLayer = L.layerGroup().addTo(map);
 }
 
-function setMapMarker(lat, lng, isStale) {
-  const busEmoji = isStale ? '📍' : '🚌';
-  const icon = L.divIcon({
-    className: '',
-    html: `<div style="font-size:2rem;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">${busEmoji}</div>`,
-    iconAnchor: [16, 32],
-  });
-
-  if (_marker) {
-    _marker.setLatLng([lat, lng]);
-    _marker.setIcon(icon);
-  } else {
-    _marker = L.marker([lat, lng], { icon }).addTo(_map);
-  }
-  _map.setView([lat, lng], 14);
+function busIcon(stale) {
+  return L.divIcon({ className: '', html: `<div class="fs-marker ${stale ? 'stale' : 'live'}"><svg class="icon icon-sm" viewBox="0 0 24 24" style="stroke:#04261a"><path d="M8 6v6M15 6v6M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><circle cx="16" cy="18" r="2"/></svg></div>`, iconSize: [30, 30], iconAnchor: [15, 15] });
 }
 
-/* ─── Vehicle list — FR-PAS-01 ─────────────────────────────────────── */
+function setMarker(lat, lng, stale, follow = true) {
+  if (marker) { marker.setLatLng([lat, lng]); marker.setIcon(busIcon(stale)); }
+  else marker = L.marker([lat, lng], { icon: busIcon(stale) }).addTo(map);
+  if (follow) map.setView([lat, lng], Math.max(map.getZoom(), 14));
+}
+
+function drawRoute(stops) {
+  routeLayer.clearLayers();
+  if (!stops?.length) return;
+  const pts = stops.map((s) => [s.latitude, s.longitude]);
+  L.polyline(pts, { color: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(), weight: 4, opacity: 0.55, dashArray: '2 8' }).addTo(routeLayer);
+  stops.forEach((s, i) => L.circleMarker([s.latitude, s.longitude], { radius: 6, color: '#fff', weight: 2, fillColor: '#5b8def', fillOpacity: 1 }).bindTooltip(Object.assign(document.createElement('span'), { textContent: `${i + 1}. ${s.name}` })).addTo(routeLayer));
+}
+
+/* ─── Vehicle list (FR-PAS-01) ─────────────────────────────────────── */
 async function loadVehicles() {
   try {
-    _vehicles = await Api.get('/passenger/vehicles');
-    const sel = document.getElementById('vehicle-select');
-    sel.innerHTML = '<option value="">— Select a vehicle —</option>';
-    _vehicles.forEach((v) => {
-      const opt = document.createElement('option');
-      opt.value = v.id;
-      const icon = v.currentStatus === 'ON_TRIP' ? '🟡' : v.currentStatus === 'ACTIVE' ? '🟢' : '🔴';
-      opt.textContent = `${icon} ${v.vehicleNumber} [${v.plateNumber}] — ${v.assignedRoute || 'No route set'}`;
-      if (!v.selectable) opt.disabled = true;
-      sel.appendChild(opt);
+    vehicles = await Api.get('/passenger/vehicles');
+    const sel = $('vehicle-select');
+    sel.replaceChildren(new Option('— Select a vehicle —', ''));
+    if (!vehicles.length) { sel.replaceChildren(new Option('No vehicles available yet', '')); return; }
+    vehicles.forEach((v) => {
+      const dot = v.currentStatus === 'on_trip' ? '● ' : v.currentStatus === 'idle' ? '○ ' : '× ';
+      const opt = new Option(`${dot}${v.vehicleNumber} — ${v.assignedRoute || 'No route set'}`, v.id);
+      opt.disabled = !v.selectable;
+      sel.append(opt);
     });
-  } catch (err) {
-    Toast.error('Failed to load vehicles: ' + err.message);
-  }
+  } catch (err) { Toast.error('Could not load vehicles: ' + err.message); }
 }
 
-/* ─── Vehicle status snapshot — FR-PAS-02, FR-PAS-04 ──────────────── */
-async function loadVehicleStatus(vehicleId) {
+/* ─── Vehicle status (FR-PAS-02, FR-PAS-04) ────────────────────────── */
+async function loadStatus(id, { quiet = false } = {}) {
   try {
-    const data = await Api.get(`/passenger/vehicles/${vehicleId}/status`);
-    renderVehicleView(data);
-  } catch (err) {
-    Toast.error('Failed to load vehicle status: ' + err.message);
-  }
+    const data = await Api.get(`/passenger/vehicles/${id}/status`);
+    if (id !== selectedId) return;
+    render(data);
+  } catch (err) { if (!quiet) Toast.error('Could not load the vehicle: ' + err.message); }
 }
 
-function renderVehicleView(data) {
-  const onTrip = data.activeTrip?.status === 'IN_PROGRESS';
-  const hasPos = data.lastKnownPosition !== null;
+function haversine(a, b) {
+  const R = 6371000, rad = (x) => (x * Math.PI) / 180;
+  const dLat = rad(b[0] - a[0]), dLng = rad(b[1] - a[1]);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a[0])) * Math.cos(rad(b[0])) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
 
-  // Map
-  if (hasPos) {
-    const pos = data.lastKnownPosition;
-    setMapMarker(pos.latitude, pos.longitude, pos.isStale);
-    _lastUpdateAt = new Date(pos.updatedAt).getTime();
-    document.getElementById('map-live-badge').innerHTML =
-      pos.isStale
-        ? `<span class="badge badge-amber">⚠ Last Seen ${fmtTime(pos.updatedAt)}</span>`
-        : `<span class="badge badge-green">● LIVE</span>`;
-    setSignalBanner(pos.isStale, pos.updatedAt);
-  } else {
-    document.getElementById('map-live-badge').innerHTML = '';
-    setSignalBanner(false, null);
-  }
+/** Index of the stop nearest to the bus (the "current" milestone); -1 before the trip starts. */
+function milestoneIndex(stops, pos, onTrip) {
+  if (!onTrip || !stops.length || !pos || pos.latitude == null) return onTrip && stops.length ? 0 : -1;
+  let best = 0, bestD = Infinity;
+  stops.forEach((s, i) => { const d = haversine([s.latitude, s.longitude], [pos.latitude, pos.longitude]); if (d < bestD) { bestD = d; best = i; } });
+  return best;
+}
 
-  // Not-started card
-  const notStarted = !onTrip && data.currentStatus === 'ACTIVE';
-  document.getElementById('not-started-card').style.display = notStarted ? 'block' : 'none';
-  if (notStarted) {
-    document.getElementById('not-started-route').textContent = data.assignedRoute || 'No route configured.';
-  }
+function render(data) {
+  current = data;
+  $('pick-hint').classList.add('hidden');
+  $('vehicle-card').classList.remove('hidden');
+  $('v-number').textContent = data.vehicleNumber;
+  $('v-plate').textContent = data.plateNumber;
+  $('v-status').innerHTML = statusBadge(data.currentStatus);
 
-  // Route stepper — FR-PAS-03
-  const stops = parseRoute(data.assignedRoute);
+  const onTrip = data.activeTrip?.status === 'in_progress';
+  const pos = data.lastKnownPosition;
+
+  if (pos && pos.latitude != null) {
+    setMarker(pos.latitude, pos.longitude, pos.isStale);
+    lastUpdateAt = new Date(pos.updatedAt).getTime();
+    setSignal(pos.isStale, pos.updatedAt);
+  } else { $('map-live-badge').replaceChildren(); setSignal(false, null); }
+
+  $('not-started').classList.toggle('hidden', onTrip || data.currentStatus !== 'idle');
+
+  const stops = data.routeStops?.length ? data.routeStops : parseRoute(data.assignedRoute).map((name) => ({ name }));
+  drawRoute(data.routeStops);
   if (stops.length) {
-    renderStepper(document.getElementById('route-stepper'), stops, onTrip ? 1 : -1);
-    document.getElementById('stepper-wrap').style.display = 'block';
-  } else {
-    document.getElementById('stepper-wrap').style.display = 'none';
-  }
+    $('route-name').textContent = data.assignedRoute || '';
+    renderStepper($('route-stepper'), stops.map((s) => s.name), milestoneIndex(data.routeStops || [], pos, onTrip));
+    $('stepper-wrap').classList.remove('hidden');
+  } else $('stepper-wrap').classList.add('hidden');
 
-  // Driver card — FR-PAS-05
-  if (data.assignedDriver) {
-    renderDriverCard(data.assignedDriver, data.vehicleNumber);
-  } else {
-    document.getElementById('driver-card').style.display = 'none';
-  }
+  if (data.assignedDriver) renderDriver(data.assignedDriver, data.vehicleNumber);
+  else $('driver-card').classList.add('hidden');
 
-  // Start stale monitor
   startStaleMonitor();
 }
 
-/* ─── Driver card ────────────────────────────────────────────────────── */
-function renderDriverCard(driver, vehicleNumber) {
-  document.getElementById('driver-avatar').textContent =
-    driver.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-  document.getElementById('driver-name').textContent = driver.name;
-  document.getElementById('driver-meta').textContent = `${driver.phone || 'No phone'} · ${vehicleNumber}`;
-  document.getElementById('call-btn').href = driver.phone ? `tel:${driver.phone}` : '#';
-  document.getElementById('driver-card').style.display = 'flex';
+function renderDriver(driver, vehicleNumber) {
+  $('driver-avatar').textContent = driver.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+  $('driver-name').textContent = driver.name;
+  $('driver-meta').textContent = `${driver.phone || 'No phone on file'} · ${vehicleNumber}`;
+  const call = $('call-btn');
+  call.href = driver.phone ? `tel:${driver.phone}` : '#';
+  call.classList.toggle('hidden', !driver.phone);
+  $('driver-card').classList.remove('hidden');
 }
 
-/* ─── Signal fallback — FR-PAS-04 ────────────────────────────────────── */
-function setSignalBanner(isStale, updatedAt) {
-  const banner = document.getElementById('signal-lost-banner');
-  if (isStale) {
-    const ago = updatedAt ? `Last updated ${timeAgo(new Date(updatedAt))}` : 'Signal Lost';
-    document.getElementById('signal-lost-text').textContent = `⚠️ Signal Lost — ${ago}`;
-    banner.style.display = 'flex';
-    document.getElementById('map-live-badge').innerHTML = `<span class="badge badge-amber">⚠ Last Seen ${fmtTime(updatedAt)}</span>`;
-    // Change marker to pin
-    if (_marker) setMapMarker(_marker.getLatLng().lat, _marker.getLatLng().lng, true);
-  } else {
-    banner.style.display = 'none';
+/* ─── Signal fallback (FR-PAS-04) ──────────────────────────────────── */
+function setSignal(stale, updatedAt) {
+  const banner = $('signal-lost-banner');
+  const badge = document.createElement('span');
+  if (stale) {
+    $('signal-lost-text').textContent = `Signal lost — last updated ${timeAgo(new Date(updatedAt))}`;
+    badge.className = 'badge badge-amber'; badge.textContent = `Last seen ${fmtTime(updatedAt)}`;
+    if (marker) setMarker(marker.getLatLng().lat, marker.getLatLng().lng, true, false);
+  } else if (updatedAt !== null || lastUpdateAt) {
+    badge.className = 'badge badge-green badge-dot'; badge.textContent = 'Live';
   }
+  banner.classList.toggle('hidden', !stale);
+  $('map-live-badge').replaceChildren(...(badge.textContent ? [badge] : []));
 }
 
 function startStaleMonitor() {
-  if (_staleTimer) clearInterval(_staleTimer);
-  _staleTimer = setInterval(() => {
-    if (!_lastUpdateAt) return;
-    const stale = (Date.now() - _lastUpdateAt) > STALE_MS;
-    if (stale) {
-      const lastDt = new Date(_lastUpdateAt);
-      setSignalBanner(true, lastDt.toISOString());
-    }
+  clearInterval(staleTimer);
+  staleTimer = setInterval(() => {
+    if (lastUpdateAt && Date.now() - lastUpdateAt > STALE_MS) setSignal(true, new Date(lastUpdateAt).toISOString());
   }, 5000);
 }
 
-/* ─── WebSocket event handlers ────────────────────────────────────────── */
-function onLocationUpdate(data) {
-  if (data.vehicleId !== _selectedId) return;
-  _lastUpdateAt = Date.now();
-  setMapMarker(data.latitude, data.longitude, false);
-  document.getElementById('map-live-badge').innerHTML = `<span class="badge badge-green">● LIVE</span>`;
-  setSignalBanner(false, null);
+/* ─── Live events ──────────────────────────────────────────────────── */
+function onLocationUpdate(d) {
+  if (d.vehicleId !== selectedId) return;
+  lastUpdateAt = Date.now();
+  setMarker(d.latitude, d.longitude, false);
+  setSignal(false, null);
+  $('map-live-badge').replaceChildren(Object.assign(document.createElement('span'), { className: 'badge badge-green badge-dot', textContent: 'Live' }));
+  if (current?.routeStops?.length) renderStepper($('route-stepper'), current.routeStops.map((s) => s.name), milestoneIndex(current.routeStops, { latitude: d.latitude, longitude: d.longitude }, true));
 }
 
-function onStatusChanged(data) {
-  if (data.vehicleId !== _selectedId) return;
-  if (data.currentStatus === 'ON_TRIP') {
-    document.getElementById('not-started-card').style.display = 'none';
-  }
+function onStatusChanged(d) {
+  if (d.vehicleId !== selectedId) return;
+  $('v-status').innerHTML = statusBadge(d.currentStatus);
+  if (d.currentStatus === 'on_trip') $('not-started').classList.add('hidden');
 }
 
-function onRouteUpdated(data) {
-  if (data.vehicleId !== _selectedId) return;
-  const stops = parseRoute(data.assignedRoute);
-  renderStepper(document.getElementById('route-stepper'), stops, 1);
-  Toast.info('Route updated by Transportation Pool.');
+function onTripEnded(d) {
+  if (d.vehicleId !== selectedId) return;
+  Toast.info(`Trip has ended for ${d.vehicleNumber}.`);
+  clearInterval(staleTimer); staleTimer = null; lastUpdateAt = null;
+  $('signal-lost-banner').classList.add('hidden');
+  $('map-live-badge').replaceChildren(Object.assign(document.createElement('span'), { className: 'badge badge-muted', textContent: 'Trip ended' }));
+  $('v-status').innerHTML = statusBadge('idle');
 }
 
-function onDriverAssigned(data) {
-  if (data.vehicleId !== _selectedId) return;
-  if (data.newDriver) renderDriverCard(data.newDriver, data.vehicleNumber);
-  else document.getElementById('driver-card').style.display = 'none';
-}
-
-function onTripEnded(data) {
-  if (data.vehicleId !== _selectedId) return;
-  Toast.info(`Trip has ended for ${data.vehicleNumber}.`);
-  if (_staleTimer) { clearInterval(_staleTimer); _staleTimer = null; }
-  setSignalBanner(false, null);
-  document.getElementById('map-live-badge').innerHTML = `<span class="badge badge-muted">Trip Ended</span>`;
-}
-
-/* ─── Helpers ─────────────────────────────────────────────────────────── */
+/* ─── Helpers ──────────────────────────────────────────────────────── */
 function resetView() {
-  if (_marker) { _marker.remove(); _marker = null; }
-  if (_staleTimer) { clearInterval(_staleTimer); _staleTimer = null; }
-  _lastUpdateAt = null;
-  document.getElementById('signal-lost-banner').style.display = 'none';
-  document.getElementById('not-started-card').style.display   = 'none';
-  document.getElementById('stepper-wrap').style.display       = 'none';
-  document.getElementById('driver-card').style.display        = 'none';
-  document.getElementById('map-live-badge').innerHTML         = '';
-  _map.setView([23.685, 90.356], 8);
+  if (marker) { marker.remove(); marker = null; }
+  routeLayer.clearLayers();
+  clearInterval(staleTimer); staleTimer = null; lastUpdateAt = null; current = null;
+  ['signal-lost-banner', 'vehicle-card', 'driver-card', 'not-started'].forEach((id) => $(id).classList.add('hidden'));
+  $('pick-hint').classList.toggle('hidden', !!selectedId);
+  $('map-live-badge').replaceChildren();
+  map.setView([23.685, 90.356], 7);
 }
 
 function timeAgo(date) {
@@ -400,11 +291,7 @@ function timeAgo(date) {
   return `${mins} minute${mins !== 1 ? 's' : ''} ago`;
 }
 
-function signOut() {
-  if (_staleTimer) clearInterval(_staleTimer);
-  Auth.clear();
-  window.location.href = '../index.html';
-}
+function signOut() { clearInterval(staleTimer); Auth.clear(); window.location.href = '../index.html'; }
 </script>
 </body>
 </html>

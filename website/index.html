@@ -7,126 +7,61 @@
   <meta name="description" content="Sign in to FleetSync — multi-tenant vehicle management and live tracking platform." />
   <link rel="stylesheet" href="style.css" />
   <style>
-    /* ─── Login page layout ─ */
     body {
-      display:         flex;
-      align-items:     center;
-      justify-content: center;
-      min-height:      100vh;
-      background:      radial-gradient(ellipse at 20% 50%, rgba(79,142,247,.07) 0%, transparent 60%),
-                       radial-gradient(ellipse at 80% 20%, rgba(124,92,252,.06) 0%, transparent 55%),
-                       var(--bg);
-      padding:         24px;
+      display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px;
+      background:
+        radial-gradient(ellipse 60% 50% at 15% 20%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
+        radial-gradient(ellipse 50% 45% at 90% 85%, color-mix(in srgb, var(--accent2) 14%, transparent), transparent 70%),
+        var(--bg);
     }
+    .theme-fab { position: fixed; top: 16px; right: 16px; width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--tx); }
+    .theme-fab:hover { color: var(--text); border-color: var(--border2); }
 
-    .login-shell {
-      display:        grid;
-      grid-template-columns: 1fr 420px;
-      gap:            48px;
-      align-items:    center;
-      width:          100%;
-      max-width:      900px;
-    }
+    .login-shell { display: grid; grid-template-columns: 1fr 440px; gap: 64px; align-items: center; width: 100%; max-width: 1000px; }
 
-    /* ─── Left brand panel ─── */
-    .brand-panel { padding: 0 16px; }
+    .brand-panel { padding: 0 8px; }
+    .brand-row { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+    .brand-mark { width: 46px; height: 46px; border-radius: 13px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; font-weight: 800; font-size: 1.05rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 35%, transparent); }
+    .brand-logo { font-size: 1.7rem; font-weight: 800; letter-spacing: -.8px; }
+    .brand-logo span { color: var(--accent); }
+    .brand-tagline { font-size: 2rem; font-weight: 800; letter-spacing: -1px; line-height: 1.15; margin-bottom: 14px; }
+    .brand-tagline em { font-style: normal; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .brand-sub { font-size: .95rem; color: var(--text-2); line-height: 1.7; max-width: 440px; }
+    .brand-features { list-style: none; margin-top: 28px; display: grid; gap: 14px; }
+    .brand-features li { display: flex; align-items: flex-start; gap: 12px; font-size: .86rem; color: var(--text-2); }
+    .feat-icon { width: 30px; height: 30px; flex-shrink: 0; border-radius: 9px; background: var(--accent-bg); color: var(--accent); display: flex; align-items: center; justify-content: center; }
+    .brand-features strong { display: block; color: var(--text); font-size: .88rem; }
 
-    .brand-logo {
-      font-size:   2.4rem;
-      font-weight: 900;
-      color:       var(--accent);
-      letter-spacing: -1px;
-      margin-bottom: 12px;
-    }
-    .brand-logo span { color: var(--accent2); }
+    .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 36px 34px; box-shadow: var(--shadow); }
+    .login-title { font-size: 1.35rem; font-weight: 800; letter-spacing: -.4px; margin-bottom: 6px; }
+    .login-sub { font-size: .84rem; color: var(--muted); margin-bottom: 24px; }
+    .pw-wrap { position: relative; }
+    .pw-wrap .form-input { padding-right: 64px; }
+    .pw-toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); font-size: .74rem; font-weight: 700; cursor: pointer; padding: 6px 8px; border-radius: 6px; }
+    .pw-toggle:hover { color: var(--text); background: var(--surface2); }
 
-    .brand-tagline {
-      font-size:   1.05rem;
-      font-weight: 600;
-      color:       var(--text);
-      margin-bottom: 8px;
-    }
-
-    .brand-sub {
-      font-size:   .87rem;
-      color:       var(--muted);
-      line-height: 1.7;
-      max-width:   340px;
-    }
-
-    .brand-features {
-      list-style:  none;
-      margin-top:  24px;
-      display:     flex;
-      flex-direction: column;
-      gap:         10px;
-    }
-    .brand-features li {
-      display:     flex;
-      align-items: flex-start;
-      gap:         10px;
-      font-size:   .84rem;
-      color:       var(--text-2);
-    }
-    .brand-features li::before {
-      content:   '→';
-      color:     var(--accent);
-      font-weight: 700;
-      flex-shrink: 0;
-    }
-
-    /* ─── Login card ─── */
-    .login-card {
-      background:    var(--surface);
-      border:        1px solid var(--border);
-      border-radius: 18px;
-      padding:       36px 32px;
-      box-shadow:    var(--shadow);
-    }
-
-    .login-title {
-      font-size:   1.2rem;
-      font-weight: 800;
-      margin-bottom: 6px;
-    }
-    .login-sub {
-      font-size: .82rem;
-      color:     var(--muted);
-      margin-bottom: 24px;
-    }
-
-    .divider {
-      height:     1px;
-      background: var(--border);
-      margin:     20px 0;
-    }
-
-    .demo-table { width:100%; border-collapse:collapse; font-size:.74rem; }
-    .demo-table th { color:var(--muted); padding:4px 6px; text-align:left; font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
-    .demo-table td { padding:5px 6px; color:var(--text-2); border-top:1px solid var(--border); }
-    .demo-table td:first-child { font-weight:600; color:var(--accent); }
-
-    @media (max-width: 700px) {
-      .login-shell { grid-template-columns: 1fr; }
-      .brand-panel { display:none; }
+    @media (max-width: 860px) {
+      .login-shell { grid-template-columns: 1fr; gap: 28px; max-width: 460px; }
+      .brand-tagline { font-size: 1.5rem; }
+      .brand-features { display: none; }
+      .brand-row { margin-bottom: 16px; }
     }
   </style>
 </head>
 <body>
+<button class="theme-fab" id="theme-fab" type="button" aria-label="Toggle theme"></button>
 
 <main class="login-shell" role="main">
 
   <!-- ─── Brand panel ─── -->
   <div class="brand-panel">
-    <div class="brand-logo">Fleet<span>Sync</span></div>
-    <div class="brand-tagline">Vehicle Management & Live Tracking</div>
-    <div class="brand-sub">Multi-tenant SaaS platform for any organization — track your fleet in real time, assign drivers instantly, and empower passengers with live bus locations.</div>
+    <div class="brand-row"><div class="brand-mark" aria-hidden="true">FS</div><div class="brand-logo">Fleet<span>Sync</span></div></div>
+    <h2 class="brand-tagline">Every vehicle, driver and route — <em>live in one place.</em></h2>
+    <p class="brand-sub">A multi-tenant platform for any organisation: track your fleet in real time, assign drivers instantly, and give passengers live vehicle locations.</p>
     <ul class="brand-features">
-      <li>Hardware-free GPS tracking via browser</li>
-      <li>Instant synchronization — changes reflect in &lt;1 second</li>
-      <li>Driver privacy protected — zero off-duty tracking</li>
-      <li>Live route milestones parsed automatically</li>
-      <li>Graceful signal fallback with "Last Seen" badge</li>
+      <li><span class="feat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><div><strong>Live tracking</strong>GPS positions update on the map in under a second.</div></li>
+      <li><span class="feat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg></span><div><strong>Isolated by institution</strong>Every record is scoped to your organisation.</div></li>
+      <li><span class="feat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg></span><div><strong>Routes, trips and history</strong>Replay any trip, manage stops, maintenance and fuel.</div></li>
     </ul>
   </div>
 
@@ -136,7 +71,7 @@
     <p class="login-sub">Select your institution, then enter your credentials.</p>
 
     <div id="login-error" class="alert alert-danger" style="display:none;" role="alert">
-      <span class="alert-icon">❌</span>
+      <span class="alert-icon" aria-hidden="true">!</span>
       <span id="login-error-msg">Invalid credentials.</span>
     </div>
 
@@ -151,22 +86,19 @@
         <div class="form-hint">Choose your institution from the list.</div>
       </div>
 
-      <!-- Email — FR-AUTH-02 -->
+      <!-- Email or Phone — FR-AUTH-02 -->
       <div class="form-group">
-        <label class="form-label" for="email">Email</label>
+        <label class="form-label" for="email">Email or Phone Number</label>
         <input
-          class="form-input" type="email" id="email" name="email"
-          placeholder="you@institution.edu" autocomplete="email" required
+          class="form-input" type="text" id="email" name="email"
+          placeholder="you@example.com or +880..." autocomplete="username" required
         />
       </div>
 
       <!-- Password — FR-AUTH-02 -->
       <div class="form-group">
         <label class="form-label" for="password">Password</label>
-        <input
-          class="form-input" type="password" id="password" name="password"
-          placeholder="••••••••" autocomplete="current-password" required
-        />
+        <div class="pw-wrap"><input class="form-input" type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" required /><button class="pw-toggle" id="pw-toggle" type="button" aria-label="Show password">Show</button></div>
       </div>
 
       <button class="btn btn-primary btn-xl" type="submit" id="login-btn">
@@ -175,19 +107,6 @@
       </button>
 
     </form>
-
-    <div class="divider"></div>
-
-    <!-- Demo credentials -->
-    <div style="font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">Demo Accounts (password: demo1234)</div>
-    <table class="demo-table">
-      <thead><tr><th>Role</th><th>Institution</th><th>Email</th></tr></thead>
-      <tbody>
-        <tr><td>🛡️ Authority</td><td>Khulna University</td><td>authority@ku.edu.bd</td></tr>
-        <tr><td>🚌 Driver</td><td>Khulna University</td><td>rahim@ku.edu.bd</td></tr>
-        <tr><td>👤 Passenger</td><td>Khulna University</td><td>passenger@ku.edu.bd</td></tr>
-      </tbody>
-    </table>
   </div>
 
 </main>
@@ -195,6 +114,13 @@
 <script src="app.js"></script>
 <script>
 (async function init() {
+  // theme toggle + show/hide password
+  const fab = document.getElementById('theme-fab');
+  const paint = () => { fab.textContent = Theme.current() === 'light' ? '☾' : '☀'; fab.setAttribute('aria-label', Theme.current() === 'light' ? 'Switch to dark theme' : 'Switch to light theme'); };
+  fab.addEventListener('click', () => { Theme.toggle(); paint(); }); paint();
+  const pw = document.getElementById('password'); const pwBtn = document.getElementById('pw-toggle');
+  pwBtn.addEventListener('click', () => { const show = pw.type === 'password'; pw.type = show ? 'text' : 'password'; pwBtn.textContent = show ? 'Hide' : 'Show'; pwBtn.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); });
+
   // Redirect if already logged in
   if (Auth.isLoggedIn()) {
     const role = Auth.role();
@@ -234,7 +160,7 @@
     // Client validation
     errEl.style.display = 'none';
     if (!institutionId) { errMsgEl.textContent = 'Please select an institution.'; errEl.style.display = 'flex'; return; }
-    if (!email)         { errMsgEl.textContent = 'Please enter your email.';       errEl.style.display = 'flex'; return; }
+    if (!email)         { errMsgEl.textContent = 'Please enter your email or phone number.';       errEl.style.display = 'flex'; return; }
     if (!password)      { errMsgEl.textContent = 'Please enter your password.';    errEl.style.display = 'flex'; return; }
 
     // Show spinner
@@ -252,6 +178,7 @@
       btn.disabled            = false;
       btnText.style.display   = 'inline';
       spinner.style.display   = 'none';
+      document.getElementById('password').value = '';
     }
   });
 })();
