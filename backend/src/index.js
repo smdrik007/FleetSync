@@ -23,6 +23,7 @@ const app    = express();
 const server = http.createServer(app);
 
 // ─── Global Middleware ───────────────────────────────────────────────
+app.set('trust proxy', 1); // behind one tunnel/proxy hop: req.ip is the client, not the proxy
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 

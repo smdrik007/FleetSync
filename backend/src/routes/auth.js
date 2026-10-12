@@ -13,6 +13,24 @@ const bcrypt  = require('bcryptjs');
 const prisma  = require('../db/client');
 const { signToken, authenticate } = require('../middleware/auth');
 
+// Brute-force guard: 10 failed logins per client IP + account per 15 minutes.
+// shortcut: in-memory, resets on restart and is per process; move to Redis if the API ever runs on several instances.
+const MAX_FAILS = 10;
+const FAIL_WINDOW_MS = 15 * 60 * 1000;
+const fails = new Map(); // key -> { n, until }
+const failKey = (req, account) => `${req.ip}|${String(account).toLowerCase()}`;
+function isThrottled(key) {
+  const f = fails.get(key);
+  if (f && Date.now() > f.until) fails.delete(key);
+  return !!fails.get(key) && fails.get(key).n >= MAX_FAILS;
+}
+function noteFail(key) {
+  if (fails.size > 5000) fails.clear(); // keep the map bounded under a flood of distinct keys
+  const f = fails.get(key);
+  if (!f || Date.now() > f.until) fails.set(key, { n: 1, until: Date.now() + FAIL_WINDOW_MS });
+  else f.n += 1;
+}
+
 // ── GET /institutions ─────────────────────────────────────────────────
 router.get('/institutions', async (req, res, next) => {
   try {
@@ -41,6 +59,14 @@ router.post('/auth/login', async (req, res, next) => {
       });
     }
 
+    const key = failKey(req, email);
+    if (isThrottled(key)) {
+      return res.status(429).json({
+        success: false,
+        error: { code: 'TOO_MANY_ATTEMPTS', message: 'Too many failed attempts. Try again in a few minutes.' },
+      });
+    }
+
     // Verify institution exists
     const institution = await prisma.institution.findUnique({ where: { id: institutionId } });
     if (!institution) {
@@ -61,6 +87,7 @@ router.post('/auth/login', async (req, res, next) => {
       });
       // Verify user belongs to the declared institution
       if (user && user.institutionId !== institutionId) {
+        noteFail(key);
         return res.status(401).json({
           success: false,
           error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' },
@@ -79,6 +106,7 @@ router.post('/auth/login', async (req, res, next) => {
     }
 
     if (!user) {
+      noteFail(key);
       return res.status(401).json({
         success: false,
         error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' },
@@ -88,11 +116,14 @@ router.post('/auth/login', async (req, res, next) => {
     // Verify password
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
+      noteFail(key);
       return res.status(401).json({
         success: false,
         error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' },
       });
     }
+
+    fails.delete(key);
 
     // Sign JWT
     const token = signToken({ sub: user.id, institutionId: user.institutionId, role: user.role });

@@ -81,6 +81,11 @@ router.post('/trips/start', DRV, async (req, res, next) => {
       return res.status(409).json({ success: false, error: { code: 'TRIP_ALREADY_ACTIVE', message: 'A trip is already in progress for this vehicle.' } });
     }
 
+    // The location insert reads device_id from devices, so a vehicle with no tracker would silently store nothing.
+    // The driver's phone becomes its tracker. shortcut: phone pseudo-IMEI, replace when real trackers are registered
+    const hasDevice = await prisma.device.findFirst({ where: { vehicleId: vehicle.id }, select: { id: true } });
+    const phoneImei = `phone-${vehicle.id}`;
+
     // Create trip + set vehicle to ON_TRIP in a transaction
     const [trip] = await prisma.$transaction([
       prisma.trip.create({
@@ -91,6 +96,11 @@ router.post('/trips/start', DRV, async (req, res, next) => {
         where: { id: vehicle.id },
         data:  { currentStatus: 'on_trip' },
       }),
+      ...(hasDevice ? [] : [prisma.device.upsert({
+        where:  { imei: phoneImei },
+        update: {},
+        create: { institutionId, vehicleId: vehicle.id, deviceType: 'phone', imei: phoneImei, installedAt: new Date() },
+      })]),
     ]);
 
     // Broadcast status change (FR-POOL-05)
