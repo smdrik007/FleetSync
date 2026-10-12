@@ -2,6 +2,9 @@
 
 const jwt = require('jsonwebtoken');
 
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET must be set in production: the development fallback is public in the repo.');
+}
 const SECRET     = process.env.JWT_SECRET || 'fleetsync_dev_secret';
 const EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
