@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FleetSync | Every vehicle, live</title>
+  <meta name="description" content="FleetSync is a multi-tenant vehicle management and live tracking platform for institutions, drivers and passengers." />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="landing.css" />
+</head>
+<body class="lp">
+
+<header class="lp-nav" id="nav">
+  <a class="lp-logo" href="/" aria-label="FleetSync home"><span class="lp-mark" aria-hidden="true">FS</span><span>Fleet<b>Sync</b></span></a>
+  <nav aria-label="Sections">
+    <a href="#live">Live map</a>
+    <a href="#roles">Who it is for</a>
+    <a href="#features">Features</a>
+  </nav>
+  <div class="lp-nav-end">
+    <button class="lp-theme" id="theme-btn" type="button" aria-label="Toggle theme"></button>
+    <a class="lp-btn lp-btn-solid" href="/index.html">Sign in</a>
+  </div>
+</header>
+
+<main>
+  <!-- 1 · Hero: four planes moving at different rates -->
+  <section class="hero" data-sc="hero" aria-labelledby="h-hero">
+    <div class="plane plane-wash" aria-hidden="true"></div>
+    <svg class="plane plane-routes" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <path d="M-40 560 C 200 560 240 330 460 350 S 760 560 940 300 S 1180 120 1260 100" />
+      <path d="M-40 220 C 160 260 300 120 520 160 S 820 260 1000 480 S 1180 600 1260 640" />
+      <circle cx="460" cy="350" r="7" /><circle cx="940" cy="300" r="7" /><circle cx="520" cy="160" r="7" /><circle cx="1000" cy="480" r="7" />
+    </svg>
+    <div class="plane plane-chips" aria-hidden="true">
+      <div class="chip c1"><i class="dot"></i>Bus 12<small>On route</small></div>
+      <div class="chip c2"><i class="dot amber"></i>Van 04<small>At stop</small></div>
+      <div class="chip c3"><i class="dot"></i>Route A<small>4 stops</small></div>
+    </div>
+    <div class="hero-copy">
+      <p class="lp-eyebrow">Fleet management and live tracking</p>
+      <h1 id="h-hero">Every vehicle,<br /><em>exactly where it is.</em></h1>
+      <p class="lead">One calm place for your institution to track vehicles, assign drivers and tell passengers when the ride arrives.</p>
+      <div class="hero-cta">
+        <a class="lp-btn lp-btn-solid lp-btn-lg" href="/index.html">Sign in</a>
+        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="#live">See it move</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 · Tension: pinned copy that fills in word by word -->
+  <section class="pin tension" data-sc="tension" aria-label="The problem">
+    <div class="pin-stage">
+      <p class="kinetic" data-kinetic>Late buses. Drivers nobody can reach. Passengers standing at a stop, guessing. A fleet you cannot see is a fleet you cannot trust.</p>
+    </div>
+  </section>
+
+  <!-- 3 · Peak: scroll drives the vehicle along the route -->
+  <section class="pin live" id="live" data-sc="live" aria-labelledby="h-live">
+    <div class="pin-stage live-stage">
+      <div class="live-copy">
+        <p class="lp-eyebrow">Live tracking</p>
+        <h2 id="h-live">Scroll, and watch<br />the route come alive.</h2>
+        <p class="live-status" aria-live="off"><span id="live-stop">Main Gate</span><small id="live-count">Stop 1 of 5</small></p>
+      </div>
+      <svg class="live-map" id="live-map" viewBox="0 0 800 500" role="img" aria-label="A vehicle travelling along a route through five stops">
+        <defs>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="var(--border)" stroke-width="1" /></pattern>
+        </defs>
+        <rect width="800" height="500" fill="url(#grid)" />
+        <path id="route-base" d="M60 420 C 200 420 180 250 330 260 S 520 380 600 220 S 720 90 750 70" />
+        <path id="route-prog" d="M60 420 C 200 420 180 250 330 260 S 520 380 600 220 S 720 90 750 70" />
+        <g id="stops"></g>
+        <g id="veh"><circle class="pulse" r="18" /><circle class="core" r="9" /></g>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 4 · Range: horizontal pan across the three roles -->
+  <section class="pin roles" id="roles" data-sc="roles" aria-labelledby="h-roles">
+    <div class="pin-stage roles-stage">
+      <h2 id="h-roles">One platform,<br />three points of view.</h2>
+      <div class="track" id="track">
+        <article class="role r1">
+          <h3>Authority</h3>
+          <p>Vehicles, drivers, routes, trips, maintenance and fuel for the whole institution, scoped so no one else's data ever mixes in.</p>
+        </article>
+        <article class="role r2">
+          <h3>Driver</h3>
+          <p>A single big button to start a trip. Position streams out while the wheel stays in your hands.</p>
+        </article>
+        <article class="role r3">
+          <h3>Passenger</h3>
+          <p>See which vehicle is closest and how long until it arrives. No more guessing at the stop.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 · Substance: wipe-in feature grid -->
+  <section class="features" id="features" aria-labelledby="h-feat">
+    <h2 id="h-feat">Built for the whole day.</h2>
+    <ul class="feat-grid">
+      <li class="wipe"><h3>Sub-second positions</h3><p>GPS updates reach the map over a live socket, not a refresh button.</p></li>
+      <li class="wipe"><h3>Isolated by institution</h3><p>Every record is scoped to your organisation from the first request.</p></li>
+      <li class="wipe"><h3>Trip replay</h3><p>Step back through any trip, stop by stop, when something needs explaining.</p></li>
+      <li class="wipe"><h3>Maintenance and fuel</h3><p>Service history and fuel logs sit next to the vehicle they belong to.</p></li>
+      <li class="wipe"><h3>Roles and permissions</h3><p>Give each person exactly the screens their job needs.</p></li>
+      <li class="wipe"><h3>Alerts that matter</h3><p>Notifications for the events that change a plan, and quiet for the rest.</p></li>
+    </ul>
+  </section>
+
+  <!-- 6 · Commitment -->
+  <section class="close" aria-labelledby="h-close">
+    <div class="close-card" id="close-card">
+      <h2 id="h-close">Ready to see your fleet?</h2>
+      <p>Pick your institution and sign in.</p>
+      <a class="lp-btn lp-btn-solid lp-btn-lg" href="/index.html">Sign in</a>
+    </div>
+  </section>
+</main>
+
+<footer class="lp-foot">FleetSync · Vehicle management and live tracking</footer>
+
+<script src="app.js"></script>
+<script src="landing.js"></script>
+</body>
+</html>

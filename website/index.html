@@ -40,6 +40,10 @@
     .pw-toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); font-size: .74rem; font-weight: 700; cursor: pointer; padding: 6px 8px; border-radius: 6px; }
     .pw-toggle:hover { color: var(--text); background: var(--surface2); }
 
+    @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+    .brand-panel > *, .login-card { animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
+    .brand-tagline { animation-delay: .08s; } .brand-sub { animation-delay: .16s; } .brand-features { animation-delay: .24s; } .login-card { animation-delay: .2s; }
+
     @media (max-width: 860px) {
       .login-shell { grid-template-columns: 1fr; gap: 28px; max-width: 460px; }
       .brand-tagline { font-size: 1.5rem; }

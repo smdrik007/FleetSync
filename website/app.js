@@ -26,8 +26,7 @@ const Theme = {
   init() {
     let saved = null;
     try { saved = localStorage.getItem(this._key); } catch { /* storage blocked */ }
-    const preferred = saved || (window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-    this._apply(preferred);
+    this._apply(saved === 'dark' ? 'dark' : 'light'); // light unless the user chose dark
   },
   toggle() {
     const next = this.current() === 'light' ? 'dark' : 'light';
@@ -36,6 +35,34 @@ const Theme = {
   },
 };
 Theme.init();
+
+/* ═══════════════════════════════════════════════════════════════════
+   REVEAL — cards/stats fade-and-rise as they scroll into view.
+   Views render dynamically, so a MutationObserver tags new nodes.
+   ═══════════════════════════════════════════════════════════════════ */
+(function reveal() {
+  if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const SEL = '.card, .stat-card, .m-card';
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  }, { rootMargin: '0px 0px -6% 0px', threshold: 0.05 });
+  const tag = (el) => {
+    if (el.nodeType !== 1 || el.closest('.modal, .drawer')) return;
+    const nodes = el.matches(SEL) ? [el, ...el.querySelectorAll(SEL)] : [...el.querySelectorAll(SEL)];
+    nodes.forEach((n, i) => {
+      if (n.classList.contains('reveal') || n.closest('.modal, .drawer')) return;
+      n.style.setProperty('--rv-d', `${Math.min(i, 6) * 45}ms`);
+      n.classList.add('reveal'); io.observe(n);
+    });
+  };
+  const start = () => {
+    tag(document.body);
+    new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach(tag))).observe(document.body, { childList: true, subtree: true });
+    // topbar gets a soft shadow once the page has scrolled
+    addEventListener('scroll', () => document.documentElement.classList.toggle('scrolled', scrollY > 4), { passive: true });
+  };
+  document.readyState === 'loading' ? addEventListener('DOMContentLoaded', start) : start();
+})();
 
 /* ═══════════════════════════════════════════════════════════════════
    AUTH

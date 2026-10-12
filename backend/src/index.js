@@ -44,6 +44,7 @@ app.use('/api/v1/passenger', passengerRouter);
 // ─── Static Frontend ─────────────────────────────────────────────────
 const path = require('path');
 const websiteDir = path.join(__dirname, '../../website');
+app.get('/', (_req, res) => res.sendFile(path.join(websiteDir, 'landing.html')));
 app.use(express.static(websiteDir));
 
 app.get('/authority', (_req, res) => res.sendFile(path.join(websiteDir, 'authority/index.html')));

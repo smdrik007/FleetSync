@@ -566,3 +566,19 @@ body.m-app { max-width: 520px; margin: 0 auto; min-height: 100vh; background: va
 .m-contact { display: flex; align-items: center; gap: 12px; }
 .m-scroll-menu { position: absolute; right: 8px; top: calc(100% + 6px); }
 .hidden { display: none !important; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Scroll motion — reveal on view, soft topbar shadow, airy light backdrop
+   ═══════════════════════════════════════════════════════════════════ */
+.reveal { opacity: 0; transform: translateY(16px); transition: opacity .55s cubic-bezier(.2,.7,.2,1) var(--rv-d, 0ms), transform .55s cubic-bezier(.2,.7,.2,1) var(--rv-d, 0ms); }
+.reveal.in { opacity: 1; transform: none; }
+.topbar, .m-top { transition: box-shadow .25s; }
+.scrolled .topbar, .scrolled .m-top { box-shadow: 0 6px 24px rgba(23,32,54,.08); }
+:root[data-theme="light"] body:not(.no-wash) {
+  background:
+    radial-gradient(ellipse 55% 40% at 8% 0%, rgba(59,111,224,.08), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 100% 100%, rgba(109,79,224,.07), transparent 70%),
+    var(--bg);
+  background-attachment: fixed;
+}
+@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; } }
