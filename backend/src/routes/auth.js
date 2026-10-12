@@ -37,7 +37,7 @@ router.post('/auth/login', async (req, res, next) => {
     if (!institutionId || !email || !password) {
       return res.status(400).json({
         success: false,
-        error: { code: 'MISSING_FIELDS', message: 'institutionId, email, and password are required.' },
+        error: { code: 'MISSING_FIELDS', message: 'institutionId, email/phone, and password are required.' },
       });
     }
 
@@ -51,9 +51,32 @@ router.post('/auth/login', async (req, res, next) => {
     }
 
     // Find user by email within institution
-    const user = await prisma.user.findUnique({
-      where: { institutionId_email: { institutionId, email } },
-    });
+    // Note: email is globally unique in v2.0 schema, institution is verified separately
+    const isEmail = email.includes('@');
+    let user;
+    if (isEmail) {
+      user = await prisma.user.findUnique({
+        where: { email },
+        include: { userRoles: { include: { role: true } } }
+      });
+      // Verify user belongs to the declared institution
+      if (user && user.institutionId !== institutionId) {
+        return res.status(401).json({
+          success: false,
+          error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password.' },
+        });
+      }
+    } else {
+      // Phone is not globally unique — search within institution
+      user = await prisma.user.findFirst({
+        where: { phone: email, institutionId },
+        include: { userRoles: { include: { role: true } } }
+      });
+    }
+    
+    if (user) {
+      user.role = user.userRoles[0]?.role?.name || 'PASSENGER';
+    }
 
     if (!user) {
       return res.status(401).json({
@@ -97,10 +120,15 @@ router.post('/auth/logout', authenticate(), (_req, res) => {
 // ── GET /auth/me ──────────────────────────────────────────────────────
 router.get('/auth/me', authenticate(), async (req, res, next) => {
   try {
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { id: req.user.sub },
-      select: { id: true, name: true, email: true, role: true, institutionId: true, phone: true, createdAt: true },
+      select: { id: true, name: true, email: true, institutionId: true, phone: true, createdAt: true, userRoles: { include: { role: true } } },
     });
+
+    if (user) {
+      user.role = user.userRoles[0]?.role?.name || 'PASSENGER';
+      delete user.userRoles;
+    }
 
     if (!user) {
       return res.status(404).json({ success: false, error: { code: 'USER_NOT_FOUND', message: 'User not found.' } });

@@ -39,30 +39,54 @@ See [`docs/SRS.md`](docs/SRS.md) and [`docs/FleetSync_SRS_Final.docx`](docs/Flee
 
 ```
 fleetsync/
-├── backend/          # API services, tenant-scoped controllers, telemetry endpoint
-├── website/          # Responsive web interface (Authority, Driver, Passenger consoles)
-├── docs/
-│   ├── FleetSync_SRS_Final.docx      # Finalized SRS Document (Word format)
-│   ├── SRS.md                        # Finalized SRS Document (Markdown, IEEE Std 830)
-│   └── generate_docx.py              # Script to build docx from specification
+├── backend/                 # Express API, Prisma schema (v2.0), WebSocket engine
+│   ├── prisma/              # schema.prisma + migrations
+│   ├── src/routes/          # auth, fleet (vehicles), catalog, network, tracking,
+│   │                        # operations, admin, dashboard, driver, passenger
+│   ├── src/db/              # Prisma client, seed.js, seed-demo.js (demo data for every ER view)
+│   └── scripts/smoke/       # API smoke tests (node:test) incl. tenant-isolation checks
+├── website/                 # No-build web app, served by the backend
+│   ├── index.html           # Sign in
+│   ├── authority/           # Authority console (single-page, hash router, ES modules)
+│   ├── driver/  passenger/  # Mobile-first driver and passenger apps
+│   ├── style.css  app.js    # Shared design system (dark + light) and client runtime
+├── docs/                    # ER diagram, schema, design specs and plans
 └── README.md
 ```
 
 ## Getting started
 
 ```bash
-# Backend
 cd backend
 npm install
-npm run dev          # starts API on localhost:3000
-
-# Website
-cd website
-# no build step — open index.html or serve with any static server
-npx serve .
+npm run db:seed      # tenants, users, and demo data for every screen (safe to re-run)
+npm run dev          # API + web app on http://localhost:3000
+npm run smoke        # API smoke tests (needs the API running; set API_BASE for another port)
 ```
 
-Demo accounts (seeded organization): email `admin@demo-org.test` / `manager@demo-org.test` / `dispatcher@demo-org.test`, password `demopass123`.
+Open <http://localhost:3000>, pick an institution and sign in. Seeded demo accounts (password `demo1234`):
+
+| Institution | Role | Email |
+|---|---|---|
+| Khulna University | Authority | `authority@ku.edu.bd` |
+| Khulna University | Driver | `rahim@ku.edu.bd`, `karim@ku.edu.bd` |
+| Khulna University | Passenger | `passenger@ku.edu.bd` |
+| Apex Logistics Co. | Authority | `authority@apex.com` |
+| Apex Logistics Co. | Driver / Passenger | `sumon@apex.com`, `rafiq@apex.com` / `passenger@apex.com` |
+
+## Authority console ↔ ER diagram
+
+The console is organised by the four views of the ER diagram (`docs/fleetsync_er_schema.md`):
+
+| Section | Screens | Tables |
+|---|---|---|
+| Overview | Dashboard (KPIs, charts, live map snapshot) | cross-view aggregates |
+| Fleet | Vehicles, Vehicle Models, Drivers, Routes (ordered stops), Stops | `vehicles`, `vehicle_models`, `drivers`, `routes`, `route_stops`, `stops` |
+| Tracking | Live Map, Trips (GPS replay), Devices | `vehicle_latest_position`, `trips`, `gps_logs`, `devices` |
+| Operations | Maintenance, Fuel Logs, Notifications | `maintenance_records`, `fuel_logs`, `notifications` |
+| Administration | Users, Roles & Permissions, Subscription, Institution | `users`, `user_roles`, `roles`, `permissions`, `role_permissions`, `subscriptions`, `institutions` |
+
+Press **Ctrl/⌘ + K** anywhere in the console to jump to a screen or find a vehicle, driver, route or stop. Every record is scoped to the signed-in institution; roles (`AUTHORITY` / `DRIVER` / `PASSENGER`) decide access, and the permission matrix is shown for reference.
 
 ## Team (Week 1)
 
