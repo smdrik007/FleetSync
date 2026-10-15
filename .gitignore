@@ -53,10 +53,6 @@ coverage/
 .nyc_output/
 .neon
 
-.vercel
-.env*
-!.env.example
-
 # Vendored/third-party checkouts, not part of the app
 expo/
 .expo/

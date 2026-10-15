@@ -1,7 +1,0 @@
-expo/
-mobile/
-android-emulator-qa/
-docs/
-.expo/
-backend/node_modules/.cache
-.env*

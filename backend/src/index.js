@@ -58,18 +58,15 @@ app.use((_req, res) => res.status(404).json({ success: false, error: { code: 'NO
 // ─── Error handler ───────────────────────────────────────────────────
 app.use(errorHandler);
 
-// ─── WebSocket + listen (long-lived process only) ────────────────────
-// On Vercel this file is imported by api/index.js as a serverless handler: no
-// listener and no WebSocket there, clients fall back to polling.
-if (require.main === module) {
-  initWebSocket(server);
+// ─── WebSocket (Real-Time Engine) ────────────────────────────────────
+initWebSocket(server);
 
-  const PORT = process.env.PORT || 3000;
-  server.listen(PORT, () => {
-    console.log(`\n🚌 FleetSync API running on http://localhost:${PORT}`);
-    console.log(`⚡  WebSocket ready on ws://localhost:${PORT}/ws`);
-    console.log(`🌱 Environment: ${process.env.NODE_ENV || 'development'}\n`);
-  });
-}
+// ─── Start ───────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`\n🚌 FleetSync API running on http://localhost:${PORT}`);
+  console.log(`⚡  WebSocket ready on ws://localhost:${PORT}/ws`);
+  console.log(`🌱 Environment: ${process.env.NODE_ENV || 'development'}\n`);
+});
 
 module.exports = { app, server };

@@ -21,7 +21,6 @@ class FakeWS {
 const last = () => FakeWS.instances[FakeWS.instances.length - 1];
 
 test.beforeEach(() => {
-  globalThis.fetch = (async () => { throw new Error('offline'); }) as typeof fetch; // polling must not hit a real network
   FakeWS.instances = [];
   globalThis.WebSocket = FakeWS as unknown as typeof WebSocket;
   authState.token = 'jwt-abc';
@@ -41,27 +40,17 @@ test('connects with the token, reports status and dispatches events', () => {
   assert.deepStrictEqual(events, [['location.update', { vehicleId: 'v1' }]]);
 });
 
-test('retries once after 1s, then falls back to polling instead of reconnecting forever', () => {
-  const s = openSocket(() => {}, () => {});
-  last().close();
-  mock.timers.tick(999);
-  assert.strictEqual(FakeWS.instances.length, 1, 'no reconnect before 1000ms');
-  mock.timers.tick(1);
-  assert.strictEqual(FakeWS.instances.length, 2, 'reconnect at 1000ms');
-  last().close();                    // second failure in a row: server has no WebSocket
-  mock.timers.tick(60_000);
-  assert.strictEqual(FakeWS.instances.length, 2, 'no further socket attempts');
-  s.close();                         // stops the poll interval so the test process can exit
-});
-
-test('a socket that opened resets the failure count and backoff', () => {
+test('reconnects with doubling backoff, capped at 15s, and resets after a successful open', () => {
   openSocket(() => {}, () => {});
-  last().close(); mock.timers.tick(1000);
-  last().open();
-  last().close();
-  const n = FakeWS.instances.length;
-  mock.timers.tick(1000);
-  assert.strictEqual(FakeWS.instances.length, n + 1, 'reconnects after 1s again, not polling');
+  const wait = (ms: number) => { const before = FakeWS.instances.length; mock.timers.tick(ms - 1); assert.strictEqual(FakeWS.instances.length, before, `no reconnect before ${ms}ms`); mock.timers.tick(1); assert.strictEqual(FakeWS.instances.length, before + 1, `reconnect at ${ms}ms`); };
+  last().close(); wait(1000);
+  last().close(); wait(2000);
+  last().close(); wait(4000);
+  last().close(); wait(8000);
+  last().close(); wait(15000);
+  last().close(); wait(15000);
+  last().open();                     // connected again: backoff starts over
+  last().close(); wait(1000);
 });
 
 test('close() stops reconnecting', () => {
