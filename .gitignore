@@ -52,3 +52,8 @@ Desktop.ini
 coverage/
 .nyc_output/
 .neon
+
+# Vendored/third-party checkouts, not part of the app
+expo/
+.expo/
+android-emulator-qa/
