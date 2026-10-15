@@ -143,6 +143,11 @@ const WsManager = {
   _reconnDelay:1000,
   _watchedVehicles: new Set(),
   _status:     'reconnecting',
+  _failures:   0,      // consecutive sockets that closed without ever opening
+  _polling:    false,  // true once the server proved to have no WebSocket (e.g. serverless hosting)
+  _pollTimer:  null,
+  _pollTick:   0,
+  _seen:       null,   // snapshot the poller diffs against
 
   /** 'connected' | 'reconnecting' */
   get status() { return this._status; },
@@ -155,10 +160,13 @@ const WsManager = {
 
   connect() {
     const token = Auth.token();
-    if (!token || this._ws) return;
+    if (!token || this._ws || this._polling) return;
     this._ws = new WebSocket(`${WS_BASE}?token=${token}`);
+    let opened = false;
 
     this._ws.onopen = () => {
+      opened = true;
+      this._failures = 0;
       this._reconnDelay = 1000;
       this._setStatus('connected');
       // Re-subscribe to watched vehicles after reconnect
@@ -177,11 +185,75 @@ const WsManager = {
       this._ws = null;
       this._setStatus('reconnecting');
       if (!Auth.isLoggedIn()) return;
+      if (!opened && ++this._failures >= 2) { this._startPolling(); return; }
       setTimeout(() => {
         this._reconnDelay = Math.min(this._reconnDelay * 2, 15000); // exponential backoff
         this.connect();
       }, this._reconnDelay);
     };
+  },
+
+  /* ── Polling fallback ────────────────────────────────────────────────
+     Hosts without WebSockets (Vercel) never open /ws, so the same events the
+     views already listen for are derived by diffing REST snapshots. */
+  _emit(event, data) { (this._handlers[event] || []).forEach((fn) => fn(data)); },
+
+  _startPolling() {
+    if (this._polling) return;
+    this._polling = true;
+    this._seen = null;
+    const tick = () => { if (!document.hidden) this._poll(); };
+    this._pollTimer = setInterval(tick, 5000);
+    document.addEventListener('visibilitychange', tick);
+    this._poll();
+  },
+
+  async _poll() {
+    if (!Auth.isLoggedIn()) return;
+    const first = !this._seen;
+    const seen = this._seen || { pos: new Map(), notes: new Set(), vehicles: new Map() };
+    try {
+      const [positions, notes, vehicles] = await Promise.all([
+        Api.get('/fleet/positions'),
+        Api.get('/notifications'),
+        // assignments change rarely: every third tick (~15 s) is enough
+        first || this._pollTick % 3 === 0 ? Api.get('/fleet/vehicles') : null,
+      ]);
+      this._pollTick++;
+
+      for (const p of positions) {
+        const prev = seen.pos.get(p.vehicleId);
+        if (prev && !first) {
+          if (prev.status !== p.status) this._emit('vehicle.status_changed', { vehicleId: p.vehicleId, status: p.status });
+          if (!prev.tripId && p.tripId) this._emit('trip.started', { vehicleId: p.vehicleId, tripId: p.tripId });
+          if (prev.tripId && !p.tripId) this._emit('trip.ended', { vehicleId: p.vehicleId, tripId: prev.tripId });
+          if (prev.recordedAt !== p.recordedAt) {
+            this._emit('location.update', { vehicleId: p.vehicleId, latitude: p.lat, longitude: p.lng, speed: p.speed, heading: p.heading, timestamp: p.recordedAt, tripId: p.tripId });
+          }
+        }
+        seen.pos.set(p.vehicleId, { status: p.status, tripId: p.tripId, recordedAt: p.recordedAt });
+      }
+
+      for (const n of notes.items || []) {
+        if (!seen.notes.has(n.id) && !first && !n.isRead) this._emit('notification.new', n);
+        seen.notes.add(n.id);
+      }
+
+      for (const v of vehicles || []) {
+        const sig = JSON.stringify([v.assignedDriver?.id ?? null, v.assignedRoute ?? null]);
+        const prev = seen.vehicles.get(v.id);
+        if (prev && !first && prev.sig !== sig) {
+          if (prev.driver !== (v.assignedDriver?.id ?? null)) this._emit('vehicle.driver_assigned', { vehicleId: v.id, newDriver: v.assignedDriver ?? null });
+          if (prev.route !== (v.assignedRoute ?? null)) this._emit('vehicle.route_updated', { vehicleId: v.id, assignedRoute: v.assignedRoute ?? null });
+        }
+        seen.vehicles.set(v.id, { sig, driver: v.assignedDriver?.id ?? null, route: v.assignedRoute ?? null });
+      }
+
+      this._seen = seen;
+      this._setStatus('connected');
+    } catch {
+      this._setStatus('reconnecting');
+    }
   },
 
   on(event, fn) {

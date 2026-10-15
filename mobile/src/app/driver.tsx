@@ -94,7 +94,7 @@ export default function Driver() {
         setNotice('Your route was updated by the transport authority.');
         refresh();
       }
-    }, setConnected);
+    }, setConnected, 'driver');
     return socket.close;
   }, [refresh]);
 
