@@ -9,6 +9,7 @@
  * PUT/DELETE      /api/v1/fleet/maintenance/:id
  * GET/POST        /api/v1/fleet/fuel                ?vehicleId
  * DELETE          /api/v1/fleet/fuel/:id
+ * GET             /api/v1/fleet/costs               ?vehicleId&from&to   (authority: fuel + maintenance spend)
  * GET             /api/v1/fleet/notifications       ?unread=1
  * POST            /api/v1/fleet/notifications       (authority) { userId, title, message }
  * POST            /api/v1/fleet/notifications/read-all
@@ -149,6 +150,68 @@ router.delete('/fuel/:id', AUTH, wrap(async (req, res) => {
   if (!row) throw bad(404, 'FUEL_NOT_FOUND', 'Fuel log not found.');
   await prisma.fuelLog.delete({ where: { id: row.id } });
   res.json({ success: true, data: { message: 'Fuel log deleted.' } });
+}));
+
+// ── Costs ────────────────────────────────────────────────────────────
+// Actual spend only: fuel logs + maintenance (same rule as the dashboard: no cancelled, no null cost).
+// Estimated trip fuel (GET /trips) is deliberately not added here, it would count the same fuel twice.
+const round2 = (n) => Math.round(n * 100) / 100;
+const monthKey = (d) => d.toISOString().slice(0, 7);
+
+router.get('/costs', AUTH, wrap(async (req, res) => {
+  const { institutionId } = req.user;
+  const { vehicleId, from, to } = req.query;
+  const empty = { totals: { fuel: 0, maintenance: 0, total: 0 }, distanceKm: 0, costPerKm: null, byVehicle: [], byMonth: [] };
+  if (vehicleId && !isUuid(vehicleId)) return res.json({ success: true, data: empty });
+
+  // Both ends inclusive: `to` is a day, so the range ends before the next day starts.
+  const range = {};
+  if (from) range.gte = toDate(from, 'from');
+  if (to) range.lt = new Date(toDate(to, 'to').getTime() + 86400000);
+  const when = (field) => (from || to ? { [field]: range } : {});
+  const scope = { institutionId, ...(vehicleId ? { vehicleId } : {}) };
+
+  const [fuelRows, maintRows, tripSums, vehicles] = await Promise.all([
+    prisma.fuelLog.findMany({ where: { ...scope, ...when('logDate') }, select: { vehicleId: true, logDate: true, totalCost: true } }),
+    prisma.maintenanceRecord.findMany({
+      where: { ...scope, ...when('serviceDate'), status: { not: 'cancelled' }, cost: { not: null } },
+      select: { vehicleId: true, serviceDate: true, cost: true },
+    }),
+    prisma.trip.groupBy({ by: ['vehicleId'], where: { ...scope, ...when('startedAt'), distanceKm: { not: null } }, _sum: { distanceKm: true } }),
+    prisma.vehicle.findMany({ where: { institutionId, ...(vehicleId ? { id: vehicleId } : {}) }, select: { id: true, vehicleNumber: true }, orderBy: { vehicleNumber: 'asc' } }),
+  ]);
+
+  const per = new Map(vehicles.map((v) => [v.id, { vehicleId: v.id, vehicleNumber: v.vehicleNumber, fuelCost: 0, maintenanceCost: 0, distanceKm: 0 }]));
+  const months = new Map();
+  const month = (d) => { const k = monthKey(d); if (!months.has(k)) months.set(k, { month: k, fuel: 0, maintenance: 0 }); return months.get(k); };
+
+  for (const f of fuelRows) { per.get(f.vehicleId).fuelCost += Number(f.totalCost); month(f.logDate).fuel += Number(f.totalCost); }
+  for (const m of maintRows) { per.get(m.vehicleId).maintenanceCost += Number(m.cost); month(m.serviceDate).maintenance += Number(m.cost); }
+  for (const t of tripSums) per.get(t.vehicleId).distanceKm += Number(t._sum.distanceKm);
+
+  const byVehicle = [...per.values()].map((v) => {
+    const total = v.fuelCost + v.maintenanceCost;
+    return {
+      vehicleId: v.vehicleId, vehicleNumber: v.vehicleNumber,
+      fuelCost: round2(v.fuelCost), maintenanceCost: round2(v.maintenanceCost), total: round2(total),
+      distanceKm: round2(v.distanceKm), costPerKm: v.distanceKm > 0 ? round2(total / v.distanceKm) : null,
+    };
+  });
+  const fuel = byVehicle.reduce((s, v) => s + v.fuelCost, 0);
+  const maintenance = byVehicle.reduce((s, v) => s + v.maintenanceCost, 0);
+  const distanceKm = byVehicle.reduce((s, v) => s + v.distanceKm, 0);
+
+  res.json({
+    success: true,
+    data: {
+      totals: { fuel: round2(fuel), maintenance: round2(maintenance), total: round2(fuel + maintenance) },
+      distanceKm: round2(distanceKm),
+      costPerKm: distanceKm > 0 ? round2((fuel + maintenance) / distanceKm) : null,
+      byVehicle,
+      byMonth: [...months.values()].sort((a, b) => a.month.localeCompare(b.month))
+        .map((m) => ({ month: m.month, fuel: round2(m.fuel), maintenance: round2(m.maintenance), total: round2(m.fuel + m.maintenance) })),
+    },
+  });
 }));
 
 // ── Notifications ────────────────────────────────────────────────────

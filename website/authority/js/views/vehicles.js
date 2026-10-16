@@ -23,6 +23,7 @@ export async function openVehicleForm(vehicle, onDone) {
     { name: 'modelId', label: 'Model', type: 'select', required: true,
       options: models.map((m) => ({ value: m.id, label: `${m.make} ${m.model}${m.capacity ? ` · ${m.capacity} seats` : ''}${m.isGlobal ? ' (catalog)' : ''}` })) },
     { name: 'currentStatus', label: 'Status', type: 'select', required: true, options: VEHICLE_STATUSES.map((s) => ({ value: s, label: titleCase(s) })) },
+    { name: 'fuelEfficiencyKmpl', label: 'Fuel efficiency (km per litre)', type: 'number', step: '0.1', min: '0', placeholder: '4.5', hint: 'Optional. Used to estimate the fuel each trip burns.' },
     { name: 'assignedDriverId', label: 'Driver', type: 'select', emptyLabel: 'None (unassigned)', hint: 'Optional. A driver drives one vehicle — picking someone already assigned moves them here.',
       options: drivers.filter((d) => d.employmentStatus === 'active' || d.id === vehicle?.assignedDriver?.id).map((d) => ({ value: d.id, label: `${d.name}${d.currentVehicleNumber && d.currentVehicleId !== vehicle?.id ? ` — now on ${d.currentVehicleNumber}` : ''}` })) },
     { name: 'assignedRouteId', label: 'Route', type: 'select', emptyLabel: 'None (on-demand)', hint: 'Optional. Leave empty for ride-hailing / on-demand vehicles.',
@@ -32,7 +33,7 @@ export async function openVehicleForm(vehicle, onDone) {
     title: editing ? `Edit ${vehicle.vehicleNumber}` : 'Add vehicle', submitLabel: editing ? 'Save changes' : 'Add vehicle', fields,
     errorFields: { PLATE_DUPLICATE: 'plateNumber', INVALID_MODEL: 'modelId', INVALID_ROUTE: 'assignedRouteId', DRIVER_NOT_FOUND: 'assignedDriverId' },
     initial: editing
-      ? { vehicleNumber: vehicle.vehicleNumber, plateNumber: vehicle.plateNumber, modelId: vehicle.modelId, currentStatus: vehicle.currentStatus, assignedDriverId: vehicle.assignedDriver?.id ?? '', assignedRouteId: vehicle.assignedRouteId ?? '' }
+      ? { vehicleNumber: vehicle.vehicleNumber, plateNumber: vehicle.plateNumber, modelId: vehicle.modelId, currentStatus: vehicle.currentStatus, fuelEfficiencyKmpl: vehicle.fuelEfficiencyKmpl ?? '', assignedDriverId: vehicle.assignedDriver?.id ?? '', assignedRouteId: vehicle.assignedRouteId ?? '' }
       : { currentStatus: 'idle' },
     async onSubmit(values) {
       if (editing) await Api.put(`/fleet/vehicles/${vehicle.id}`, values);
@@ -79,7 +80,8 @@ export async function openVehicleDrawer(id, { onClose, onChanged } = {}) {
     sections: [
       { heading: 'Model', content: kv([
         ['Make & model', model ? `${model.make} ${model.model}` : v.model], ['Capacity', v.capacity ? `${v.capacity} seats` : null],
-        ['Year', model?.year], ['Fuel type', model?.fuelType ? titleCase(model.fuelType) : null]]) },
+        ['Year', model?.year], ['Fuel type', model?.fuelType ? titleCase(model.fuelType) : null],
+        ['Fuel efficiency', v.fuelEfficiencyKmpl ? `${fmtNumber(v.fuelEfficiencyKmpl, 1)} km/L` : null]]) },
       { heading: 'Assignment', content: kv([
         ['Driver', v.assignedDriver ? link(v.assignedDriver.name, () => navigate(`/fleet/drivers/${v.assignedDriver.id}`)) : h('span', { class: 'text-muted' }, 'Unassigned')],
         ['Driver phone', v.assignedDriver?.phone],

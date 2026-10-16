@@ -273,6 +273,8 @@ model Vehicle {
   assignedRouteId  String?  @map("assigned_route_id") @db.Uuid
   vehicleNumber    String   @map("vehicle_number")
   plateNumber      String   @map("plate_number")
+  /// Tenant-set km per litre, used for the per-trip fuel estimate
+  fuelEfficiencyKmpl Decimal? @map("fuel_efficiency_kmpl") @db.Decimal(6, 2)
   /// CHECK: idle | on_trip | maintenance | offline | retired
   currentStatus    String   @default("idle") @map("current_status")
   createdAt        DateTime @default(now()) @map("created_at")
@@ -336,6 +338,8 @@ model Trip {
   status        String    @default("in_progress")
   startedAt     DateTime  @default(now()) @map("started_at")
   endedAt       DateTime? @map("ended_at")
+  /// Filled when the trip ends (see lib/tripDistance.js); NULL = not computed yet
+  distanceKm    Decimal?  @map("distance_km") @db.Decimal(10, 3)
 
   institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
   vehicle     Vehicle     @relation(fields: [institutionId, vehicleId], references: [institutionId, id])
@@ -376,6 +380,7 @@ model GpsLog {
 
   @@id([id, recordedAt])
   @@index([vehicleId], name: "idx_gps_logs_vehicle_time")
+  @@index([tripId, recordedAt], name: "idx_gps_logs_trip_time")
   @@map("gps_logs")
 }
 

@@ -13,6 +13,7 @@ const prisma = require('../db/client');
 const { authenticate } = require('../middleware/auth');
 const { emitVehicleEvent, emitLocationUpdate } = require('../ws/server');
 const { stopsByRoute } = require('../lib/routeStops');
+const { tripDistanceKm } = require('../lib/tripDistance');
 
 const DRV = authenticate('DRIVER');
 
@@ -144,11 +145,12 @@ router.post('/trips/:tripId/end', DRV, async (req, res, next) => {
 
     const now = new Date();
     const durationMinutes = Math.round((now - trip.startedAt) / 60000);
+    const distanceKm = await tripDistanceKm(trip.id, institutionId); // the app uploads its queue before /end
 
     const [updatedTrip] = await prisma.$transaction([
       prisma.trip.update({
         where: { id: trip.id },
-        data:  { status: 'completed', endedAt: now },
+        data:  { status: 'completed', endedAt: now, distanceKm },
         select: { id: true, vehicleId: true, startedAt: true, endedAt: true, status: true },
       }),
       prisma.vehicle.update({
@@ -175,7 +177,7 @@ router.post('/trips/:tripId/end', DRV, async (req, res, next) => {
 
     res.json({
       success: true,
-      data: { id: trip.id, tripId: trip.id, vehicleId: updatedTrip.vehicleId, startedAt: updatedTrip.startedAt, endedAt: updatedTrip.endedAt, status: updatedTrip.status, durationMinutes },
+      data: { id: trip.id, tripId: trip.id, vehicleId: updatedTrip.vehicleId, startedAt: updatedTrip.startedAt, endedAt: updatedTrip.endedAt, status: updatedTrip.status, durationMinutes, distanceKm },
     });
   } catch (err) { next(err); }
 });

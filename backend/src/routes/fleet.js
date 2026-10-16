@@ -25,7 +25,7 @@ const AUTH = authenticate('AUTHORITY');
 // We select recordedAt and use a separate raw query if coordinates are needed.
 const vehicleSelect = {
   id: true, institutionId: true, modelId: true, assignedRouteId: true,
-  vehicleNumber: true, plateNumber: true, 
+  vehicleNumber: true, plateNumber: true, fuelEfficiencyKmpl: true,
   model: { select: { make: true, model: true, capacity: true } },
   currentStatus: true, 
   assignedRoute: { select: { name: true } },
@@ -33,6 +33,18 @@ const vehicleSelect = {
   latestPosition: { select: { recordedAt: true, speed: true, heading: true } },
   createdAt: true, updatedAt: true,
 };
+
+// Prisma returns Decimal as a string in JSON; the console wants a number.
+const toNum = (d) => (d === null || d === undefined ? null : Number(d));
+
+/** undefined = field not sent (leave as is); '' / null clears it; otherwise a km/L between 0 and 100. */
+function parseKmpl(value) {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0 || n > 100) throw bad(422, 'INVALID_EFFICIENCY', 'fuelEfficiencyKmpl must be a number between 0 and 100.');
+  return n;
+}
 
 // Valid vehicle statuses per SQL schema CHECK constraint
 const VEHICLE_STATUSES = ['idle', 'on_trip', 'maintenance', 'offline', 'retired'];
@@ -68,6 +80,7 @@ router.get('/vehicles', AUTH, async (req, res, next) => {
       const loc = locMap[v.id];
       return {
         ...v,
+        fuelEfficiencyKmpl: toNum(v.fuelEfficiencyKmpl),
         model: v.model ? `${v.model.make || ''} ${v.model.model || ''}`.trim() : null,
         capacity: v.model?.capacity || null,
         assignedRoute: v.assignedRoute?.name || null,
@@ -140,8 +153,9 @@ router.post('/vehicles', AUTH, async (req, res, next) => {
       }
     }
 
+    const fuelEfficiencyKmpl = parseKmpl(req.body.fuelEfficiencyKmpl) ?? null;
     const vehicleRaw = await prisma.vehicle.create({
-      data: { institutionId, vehicleNumber, plateNumber, modelId: resolvedModelId, currentStatus: currentStatus || 'idle', assignedRouteId: resolvedRouteId, assignedDriverId: assignedDriverId || null },
+      data: { institutionId, vehicleNumber, plateNumber, fuelEfficiencyKmpl, modelId: resolvedModelId, currentStatus: currentStatus || 'idle', assignedRouteId: resolvedRouteId, assignedDriverId: assignedDriverId || null },
       select: vehicleSelect,
     });
 
@@ -152,6 +166,7 @@ router.post('/vehicles', AUTH, async (req, res, next) => {
 
     const vehicle = {
       ...vehicleRaw,
+      fuelEfficiencyKmpl: toNum(vehicleRaw.fuelEfficiencyKmpl),
       model: vehicleRaw.model ? `${vehicleRaw.model.make || ''} ${vehicleRaw.model.model || ''}`.trim() : null,
       capacity: vehicleRaw.model?.capacity || null,
       assignedRoute: vehicleRaw.assignedRoute?.name || null,
@@ -186,6 +201,7 @@ router.get('/vehicles/:vehicleId', AUTH, async (req, res, next) => {
 
     const vehicle = {
       ...vehicleRaw,
+      fuelEfficiencyKmpl: toNum(vehicleRaw.fuelEfficiencyKmpl),
       model: vehicleRaw.model ? `${vehicleRaw.model.make || ''} ${vehicleRaw.model.model || ''}`.trim() : null,
       capacity: vehicleRaw.model?.capacity || null,
       assignedRoute: vehicleRaw.assignedRoute?.name || null,
@@ -214,6 +230,7 @@ router.put('/vehicles/:vehicleId', AUTH, async (req, res, next) => {
     if (!existing) return res.status(404).json({ success: false, error: { code: 'VEHICLE_NOT_FOUND', message: 'Vehicle not found.' } });
 
     const { vehicleNumber, plateNumber, model, capacity, currentStatus, assignedRoute, assignedDriverId, modelId, assignedRouteId } = req.body;
+    const kmpl = parseKmpl(req.body.fuelEfficiencyKmpl);
     await checkRefs(institutionId, { modelId, assignedRouteId });
 
     // Validate status enum
@@ -243,6 +260,7 @@ router.put('/vehicles/:vehicleId', AUTH, async (req, res, next) => {
     if (plateNumber    !== undefined) updateData.plateNumber    = plateNumber;
     if (currentStatus  !== undefined) updateData.currentStatus  = currentStatus;
     if (newDriverId    !== undefined) updateData.assignedDriverId = newDriverId;
+    if (kmpl !== undefined) updateData.fuelEfficiencyKmpl = kmpl;
 
     if (modelId) updateData.modelId = modelId;
     const hasRouteId = Object.prototype.hasOwnProperty.call(req.body, 'assignedRouteId');
@@ -274,6 +292,7 @@ router.put('/vehicles/:vehicleId', AUTH, async (req, res, next) => {
 
     const updated = {
       ...updatedRaw,
+      fuelEfficiencyKmpl: toNum(updatedRaw.fuelEfficiencyKmpl),
       model: updatedRaw.model ? `${updatedRaw.model.make || ''} ${updatedRaw.model.model || ''}`.trim() : null,
       capacity: updatedRaw.model?.capacity || null,
       assignedRoute: updatedRaw.assignedRoute?.name || null,

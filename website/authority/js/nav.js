@@ -22,6 +22,7 @@ export const NAV = [
   { group: 'Operations', items: [
     { path: '/operations/maintenance',   label: 'Maintenance', icon: 'wrench', hint: 'maintenance_records' },
     { path: '/operations/fuel',          label: 'Fuel Logs', icon: 'fuel', hint: 'fuel_logs' },
+    { path: '/operations/costs',        label: 'Costs', icon: 'card', hint: 'fuel + maintenance spend' },
     { path: '/operations/notifications', label: 'Notifications', icon: 'bell', hint: 'notifications' },
   ] },
   { group: 'Administration', items: [
@@ -45,6 +46,7 @@ export const ROUTES = [
   ['/tracking/devices', 'devices'],
   ['/operations/maintenance', 'maintenance'],
   ['/operations/fuel', 'fuel'],
+  ['/operations/costs', 'costs'],
   ['/operations/notifications', 'notifications'],
   ['/admin/users', 'users'],
   ['/admin/roles', 'roles'],

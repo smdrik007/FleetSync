@@ -1,7 +1,7 @@
 /** Trips — `trips` with a `gps_logs` replay (map, polyline, time slider, play/pause). */
 import { makeListView } from './_list.js';
 import { Lists, TRIP_STATUSES } from '../data.js';
-import { h, badge, kv, link, button, emptyState, fmtDateTime, fmtNumber, titleCase, icon, reducedMotion } from '../ui.js';
+import { h, badge, kv, link, button, emptyState, fmtDateTime, fmtMoney, fmtNumber, titleCase, icon, reducedMotion } from '../ui.js';
 import { createMap, fitTo } from '../maps.js';
 import { navigate } from '../router.js';
 
@@ -84,6 +84,9 @@ export default makeListView({
     { key: 'driver', label: 'Driver', sortable: true, value: (t) => t.driver.name, render: (t) => t.driver.name },
     { key: 'route', label: 'Route', render: (t) => (t.route ? h('span', { class: 'truncate', style: { display: 'inline-block', maxWidth: '260px' }, title: t.route.name }, t.route.name) : h('span', { class: 'text-muted' }, 'No route')) },
     { key: 'duration', label: 'Duration', render: duration },
+    { key: 'distanceKm', label: 'Distance', sortable: true, align: 'num', value: (t) => t.distanceKm ?? -1, render: (t) => (t.distanceKm === null ? '—' : `${fmtNumber(t.distanceKm, 1)} km`) },
+    { key: 'estFuelLitres', label: 'Est. fuel', sortable: true, align: 'num', value: (t) => t.estFuelLitres ?? -1, render: (t) => (t.estFuelLitres === null ? '—' : `${fmtNumber(t.estFuelLitres, 1)} L`) },
+    { key: 'estFuelCost', label: 'Est. fuel cost', sortable: true, align: 'num', value: (t) => t.estFuelCost ?? -1, render: (t) => fmtMoney(t.estFuelCost) },
     { key: 'status', label: 'Status', sortable: true, render: (t) => badge(t.status) },
   ],
   async openDetail({ id, api }) {
@@ -98,7 +101,10 @@ export default makeListView({
           ['Driver', link(trip.driver.name, () => navigate(`/fleet/drivers/${trip.driver.id}`))],
           ['Route', trip.route ? link(trip.route.name, () => navigate(`/fleet/routes/${trip.route.id}`)) : null],
           ['Started', fmtDateTime(trip.startedAt)], ['Ended', trip.endedAt ? fmtDateTime(trip.endedAt) : 'In progress'],
-          ['Duration', duration(trip)], ['GPS points', fmtNumber(trip.pointCount)]]) },
+          ['Duration', duration(trip)], ['GPS points', fmtNumber(trip.pointCount)],
+          ['Distance', trip.distanceKm === null ? null : `${fmtNumber(trip.distanceKm, 2)} km`],
+          ['Est. fuel used', trip.estFuelLitres === null ? 'Set the vehicle’s km/L to estimate' : `${fmtNumber(trip.estFuelLitres, 2)} L`],
+          ['Est. fuel cost', trip.estFuelCost === null ? null : fmtMoney(trip.estFuelCost)]]) },
         { heading: 'GPS replay', content: replay ? replay.root : emptyState('No GPS points recorded for this trip', 'Replay appears once the vehicle reports positions during a trip.') },
       ],
     });

@@ -14,6 +14,7 @@ const router = require('express').Router();
 const prisma = require('../db/client');
 const { authenticate } = require('../middleware/auth');
 const { bad, assertEnum, isUuid, wrap } = require('../lib/http');
+const { tripDistanceKm } = require('../lib/tripDistance');
 
 const AUTH = authenticate('AUTHORITY');
 
@@ -23,14 +24,30 @@ const STALE_MS  = 5 * 60 * 1000;
 const MAX_POINTS = 2000;
 
 const tripInclude = {
-  vehicle: { select: { id: true, vehicleNumber: true } },
+  vehicle: { select: { id: true, vehicleNumber: true, fuelEfficiencyKmpl: true } },
   driver:  { select: { id: true, name: true } },
   route:   { select: { id: true, name: true } },
 };
-const presentTrip = (t) => ({
-  id: t.id, status: t.status, startedAt: t.startedAt, endedAt: t.endedAt,
-  vehicle: t.vehicle, driver: t.driver, route: t.route || null,
-});
+const round = (n, d) => Math.round(n * 10 ** d) / 10 ** d;
+
+/** Tenant's average price per litre from its own fuel logs; null when it has none. Estimates are never stored. */
+async function avgFuelPrice(institutionId) {
+  const { _sum } = await prisma.fuelLog.aggregate({ where: { institutionId }, _sum: { totalCost: true, volume: true } });
+  const litres = Number(_sum.volume || 0);
+  return litres > 0 ? Number(_sum.totalCost) / litres : null;
+}
+
+const presentTrip = (t, price = null, distanceKm = t.distanceKm === null ? null : Number(t.distanceKm)) => {
+  const kmpl = t.vehicle?.fuelEfficiencyKmpl == null ? null : Number(t.vehicle.fuelEfficiencyKmpl);
+  const litres = distanceKm !== null && kmpl ? distanceKm / kmpl : null;
+  return {
+    id: t.id, status: t.status, startedAt: t.startedAt, endedAt: t.endedAt,
+    vehicle: t.vehicle && { id: t.vehicle.id, vehicleNumber: t.vehicle.vehicleNumber },
+    driver: t.driver, route: t.route || null,
+    distanceKm, estFuelLitres: litres === null ? null : round(litres, 2),
+    estFuelCost: litres !== null && price !== null ? round(litres * price, 2) : null,
+  };
+};
 
 async function ownTrip(id, institutionId) {
   const t = isUuid(id) ? await prisma.trip.findFirst({ where: { id, institutionId }, include: tripInclude }) : null;
@@ -66,7 +83,8 @@ router.get('/trips', AUTH, wrap(async (req, res) => {
     if (to)   where.startedAt.lte = parseDate(to, 'to');
   }
   const rows = await prisma.trip.findMany({ where, include: tripInclude, orderBy: { startedAt: 'desc' }, take: 500 });
-  res.json({ success: true, data: rows.map(presentTrip) });
+  const price = await avgFuelPrice(institutionId);
+  res.json({ success: true, data: rows.map((t) => presentTrip(t, price)) });
 }));
 
 router.get('/trips/:id', AUTH, wrap(async (req, res) => {
@@ -74,7 +92,9 @@ router.get('/trips/:id', AUTH, wrap(async (req, res) => {
   const t = await ownTrip(req.params.id, institutionId);
   const [{ n }] = await prisma.$queryRaw`SELECT count(*)::int AS n FROM gps_logs WHERE trip_id = ${t.id}::uuid AND institution_id = ${institutionId}::uuid`;
   const durationMinutes = t.endedAt ? Math.round((t.endedAt - t.startedAt) / 60000) : null;
-  res.json({ success: true, data: { ...presentTrip(t), pointCount: n, durationMinutes } });
+  // Completed trips store it; a trip still running (or not backfilled yet) is measured live.
+  const distanceKm = t.distanceKm === null ? await tripDistanceKm(t.id, institutionId) : Number(t.distanceKm);
+  res.json({ success: true, data: { ...presentTrip(t, await avgFuelPrice(institutionId), distanceKm), pointCount: n, durationMinutes } });
 }));
 
 router.get('/trips/:id/track', AUTH, wrap(async (req, res) => {

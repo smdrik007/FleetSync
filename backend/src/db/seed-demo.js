@@ -7,6 +7,8 @@
  * Called from seed.js after the core tenancy/fleet rows exist.
  */
 
+const { tripDistanceKm } = require('../lib/tripDistance');
+
 const DAY = 86400000;
 const pad = (n) => String(n).padStart(12, '0');
 const uid = (group, n) => `00000000-0000-4000-${group}-${pad(n)}`;
@@ -151,6 +153,9 @@ async function seedTenant(prisma, key, t) {
     });
   }
 
+  // Fuel efficiency feeds the per-trip fuel estimate: buses ~4.5 km/L, vans ~8 km/L (fills blanks only).
+  await Promise.all(vehicles.map((v, i) => prisma.vehicle.updateMany({ where: { id: v.id, fuelEfficiencyKmpl: null }, data: { fuelEfficiencyKmpl: i % 2 === 0 ? 4.5 : 8 } })));
+
   // ── Trips + GPS trails (only on first run) ─────────────────────
   if (!(await prisma.trip.findUnique({ where: { id: uid('a300', slot * 100) } }))) {
     const routeIds = geo.routes.map((r) => uid(r.id.split('-')[0], Number(r.id.split('-')[1])));
@@ -179,6 +184,7 @@ async function seedTenant(prisma, key, t) {
                   ST_SetSRID(ST_MakePoint(${points[p].lng}, ${points[p].lat}), 4326)::geography,
                   8, ${28 + (p % 5) * 4}, ${hd}, true)`;
       }
+      await prisma.trip.update({ where: { id: tripId }, data: { distanceKm: await tripDistanceKm(tripId, iid, prisma) } });
     }
     // One trip in progress, with a live position (unless a real one already exists)
     const liveV = key === 'ku' ? 1 : 0; const liveD = key === 'ku' ? 1 : 1; const liveR = key === 'ku' ? 1 : 0;
