@@ -11,6 +11,7 @@ const prisma = require('../db/client');
 const { Prisma } = require('@prisma/client');
 const { authenticate } = require('../middleware/auth');
 const { stopsByRoute } = require('../lib/routeStops');
+const { nextStopEta, averageSpeedKmh } = require('../lib/eta');
 
 const PASS = authenticate('PASSENGER');
 
@@ -115,6 +116,18 @@ router.get('/vehicles/:vehicleId/status', PASS, async (req, res, next) => {
       };
     }
 
+    // Next stop and approximate arrival: only while a trip runs and the position is fresh.
+    const routeStops = (await stopsByRoute([vehicle.assignedRouteId])).get(vehicle.assignedRouteId) || [];
+    let progress = null;
+    if (activeTrip && lastKnownPosition && !lastKnownPosition.isStale && lastKnownPosition.latitude != null) {
+      // Speed from this trip's recent fixes, not the reported speed: phones and trackers report it in different units.
+      const recent = await prisma.$queryRaw`
+        SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng, recorded_at
+        FROM gps_logs WHERE trip_id = ${activeTrip.id}::uuid ORDER BY recorded_at DESC LIMIT 8`;
+      const speed = averageSpeedKmh(recent.map((r) => ({ lat: r.lat, lng: r.lng, at: new Date(r.recorded_at) })));
+      progress = nextStopEta(routeStops, { lat: lastKnownPosition.latitude, lng: lastKnownPosition.longitude }, speed);
+    }
+
     res.json({
       success: true,
       data: {
@@ -123,7 +136,8 @@ router.get('/vehicles/:vehicleId/status', PASS, async (req, res, next) => {
         plateNumber:    vehicle.plateNumber,
         currentStatus:  vehicle.currentStatus,
         assignedRoute:  vehicle.assignedRoute?.name || null,
-        routeStops:     (await stopsByRoute([vehicle.assignedRouteId])).get(vehicle.assignedRouteId) || [],
+        routeStops,
+        progress,
         assignedDriver: vehicle.assignedDriver,
         activeTrip,
         lastKnownPosition,

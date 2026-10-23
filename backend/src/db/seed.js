@@ -11,6 +11,7 @@ require('dotenv').config();
 const prisma    = require('./client');
 const bcrypt    = require('bcryptjs');
 const { seedDemo } = require('./seed-demo');
+const { seedGuardian } = require('./seed-guardian');
 
 const SALT_ROUNDS = 10;
 const hash = (pw) => bcrypt.hashSync(pw, SALT_ROUNDS);
@@ -300,6 +301,7 @@ async function main() {
     userIds:  (await prisma.user.findMany({ where: { institutionId: inst.id }, select: { id: true } })).map((u) => u.id),
   });
   await seedDemo(prisma, { ku: await tenantCtx(ku, kuAuthority), apex: await tenantCtx(apex, apexAuthority) });
+  await seedGuardian(prisma);
 
   console.log('\n🎉 Seed complete (v2.0)!\n');
 }

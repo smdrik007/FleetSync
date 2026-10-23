@@ -1,11 +1,11 @@
 'use strict';
 
 /**
- * Administration (Authority only): users, roles & permissions, subscription,
+ * Administration (Authority only): users, roles (for assigning to users), subscription,
  * institution, and the driver records (list/create/update/delete).
  *
  * GET/POST        /api/v1/fleet/users          PUT /users/:id       PUT /users/:id/roles
- * GET             /api/v1/fleet/roles          GET /roles/:id/permissions    GET /permissions
+ * GET             /api/v1/fleet/roles
  * GET             /api/v1/fleet/subscription
  * GET/PUT         /api/v1/fleet/institution
  * GET/POST        /api/v1/fleet/drivers        PUT/DELETE /drivers/:id
@@ -15,23 +15,17 @@ const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const prisma = require('../db/client');
 const { authenticate } = require('../middleware/auth');
-const { bad, assertEnum, isUuid, wrap } = require('../lib/http');
+const { bad, assertEnum, isUuid, wrap, checkPassword } = require('../lib/http');
+const { TRACKING_TYPES, rolesFor, forgetTrackingType } = require('../lib/trackingType');
 
 const AUTH = authenticate('AUTHORITY');
 const EMPLOYMENT = ['active', 'on_leave', 'suspended', 'terminated'];
-const MIN_PASSWORD = 8;
 
 function dateOrNull(value, field) {
   if (value === null || value === '') return null;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) throw bad(422, `INVALID_${field.toUpperCase()}`, `${field} must be a valid date.`);
   return d;
-}
-
-function checkPassword(password) {
-  if (typeof password !== 'string' || password.length < MIN_PASSWORD) {
-    throw bad(422, 'WEAK_PASSWORD', `password must be at least ${MIN_PASSWORD} characters.`);
-  }
 }
 
 /** Every id must be a role of this tenant, else 422 INVALID_ROLE. Returns the role rows. */
@@ -102,29 +96,18 @@ router.put('/users/:id/roles', AUTH, wrap(async (req, res) => {
   res.json({ success: true, data: presentUser(await ownUser(req.params.id, institutionId)) });
 }));
 
-// ── Roles & permissions ──────────────────────────────────────────────
+// ── Roles (a user's role decides access; there is no permission matrix) ──────────────────────────────────────────────
 router.get('/roles', AUTH, wrap(async (req, res) => {
   const rows = await prisma.role.findMany({
     where: { institutionId: req.user.institutionId },
-    include: { _count: { select: { userRoles: true, rolePermissions: true } } }, orderBy: { name: 'asc' },
+    include: { _count: { select: { userRoles: true } } }, orderBy: { name: 'asc' },
   });
   res.json({
     success: true,
-    data: rows.map((r) => ({ id: r.id, name: r.name, description: r.description, isSystem: r.isSystem, userCount: r._count.userRoles, permissionCount: r._count.rolePermissions })),
+    data: rows.map((r) => ({ id: r.id, name: r.name, description: r.description, isSystem: r.isSystem, userCount: r._count.userRoles })),
   });
 }));
 
-router.get('/permissions', AUTH, wrap(async (_req, res) => {
-  const rows = await prisma.permission.findMany({ orderBy: { code: 'asc' } });
-  res.json({ success: true, data: rows.map((p) => ({ id: p.id, code: p.code, description: p.description })) });
-}));
-
-router.get('/roles/:id/permissions', AUTH, wrap(async (req, res) => {
-  const role = isUuid(req.params.id) ? await prisma.role.findFirst({ where: { id: req.params.id, institutionId: req.user.institutionId } }) : null;
-  if (!role) throw bad(404, 'ROLE_NOT_FOUND', 'Role not found.');
-  const rows = await prisma.rolePermission.findMany({ where: { roleId: role.id }, include: { permission: true }, orderBy: { permission: { code: 'asc' } } });
-  res.json({ success: true, data: rows.map((rp) => ({ id: rp.permission.id, code: rp.permission.code, description: rp.permission.description })) });
-}));
 
 // ── Subscription & institution ───────────────────────────────────────
 router.get('/subscription', AUTH, wrap(async (req, res) => {
@@ -136,7 +119,19 @@ router.get('/subscription', AUTH, wrap(async (req, res) => {
   res.json({ success: true, data: { current: rows[0] ? present(rows[0]) : null, history: rows.map(present) } });
 }));
 
-const presentInstitution = (i) => ({ id: i.id, name: i.name, slug: i.slug, logoUrl: i.logoUrl });
+const presentInstitution = (i) => ({
+  id: i.id, name: i.name, slug: i.slug, logoUrl: i.logoUrl,
+  contactPhone: i.contactPhone, contactEmail: i.contactEmail, contactAddress: i.contactAddress,
+  trackingType: i.trackingType, gpsRetentionDays: i.gpsRetentionDays,
+});
+
+/** undefined = not sent; '' / null clears; otherwise a trimmed string no longer than `max`. */
+function optionalText(value, field, max) {
+  if (value === undefined) return undefined;
+  const s = value === null ? '' : String(value).trim();
+  if (s.length > max) throw bad(422, 'INVALID_CONTACT', `${field} must be at most ${max} characters.`);
+  return s || null;
+}
 
 router.get('/institution', AUTH, wrap(async (req, res) => {
   const i = await prisma.institution.findUnique({ where: { id: req.user.institutionId } });
@@ -149,8 +144,34 @@ router.put('/institution', AUTH, wrap(async (req, res) => {
     if (!String(req.body.name).trim()) throw bad(422, 'MISSING_FIELDS', 'name cannot be empty.');
     data.name = String(req.body.name).trim();
   }
-  if (req.body.logoUrl !== undefined) data.logoUrl = req.body.logoUrl || null;   // slug is intentionally not editable
-  const i = await prisma.institution.update({ where: { id: req.user.institutionId }, data });
+  if (req.body.logoUrl !== undefined) {
+    const url = req.body.logoUrl ? String(req.body.logoUrl).trim() : null;
+    if (url && (url.length > 500 || !/^https?:\/\/[^\s]+$/i.test(url))) throw bad(422, 'INVALID_LOGOURL', 'logoUrl must be an http(s) address, up to 500 characters.');
+    data.logoUrl = url;   // slug is intentionally not editable
+  }
+  for (const [key, max] of [['contactPhone', 30], ['contactEmail', 120], ['contactAddress', 300]]) {
+    const v = optionalText(req.body[key], key, max);
+    if (v !== undefined) data[key] = v;
+  }
+  if (data.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.contactEmail)) throw bad(422, 'INVALID_CONTACT', 'contactEmail must be a valid email address.');
+  const { institutionId } = req.user;
+  if (req.body.gpsRetentionDays !== undefined) {
+    const days = Number(req.body.gpsRetentionDays);
+    if (![1, 7, 30, 90].includes(days)) throw bad(422, 'INVALID_GPSRETENTIONDAYS', 'gpsRetentionDays must be 1, 7, 30 or 90.');
+    data.gpsRetentionDays = days;
+  }
+  if (req.body.trackingType !== undefined) {
+    assertEnum(req.body.trackingType, TRACKING_TYPES, 'trackingType');
+    data.trackingType = req.body.trackingType;
+  }
+  const i = await prisma.institution.update({ where: { id: institutionId }, data });
+  if (data.trackingType) {
+    // Switching keeps all data; the roles the new type needs are added, and the screens follow the type.
+    for (const name of rolesFor(data.trackingType)) {
+      await prisma.role.upsert({ where: { uq_roles_name: { institutionId, name } }, update: {}, create: { institutionId, name, isSystem: true } });
+    }
+    forgetTrackingType(institutionId);
+  }
   res.json({ success: true, data: presentInstitution(i) });
 }));
 

@@ -15,6 +15,8 @@ const prisma = require('../db/client');
 const { authenticate } = require('../middleware/auth');
 const { bad, assertEnum, isUuid, wrap } = require('../lib/http');
 const { tripDistanceKm } = require('../lib/tripDistance');
+const { newDeviceKey, renderSetup } = require('../lib/deviceKey');
+const { trackingTypeOf } = require('../lib/trackingType');
 
 const AUTH = authenticate('AUTHORITY');
 
@@ -53,6 +55,18 @@ async function ownTrip(id, institutionId) {
   const t = isUuid(id) ? await prisma.trip.findFirst({ where: { id, institutionId }, include: tripInclude }) : null;
   if (!t) throw bad(404, 'TRIP_NOT_FOUND', 'Trip not found.');
   return t;
+}
+
+/** A people/things institution attaches devices to people, a vehicle institution to vehicles. */
+async function assertTargetAllowed(institutionId, toAsset) {
+  const people = (await trackingTypeOf(institutionId)) !== 'vehicle';
+  if (toAsset !== people) throw bad(403, 'FEATURE_DISABLED', people ? 'This institution tracks people or things, so devices attach to a person.' : 'This institution tracks vehicles, so devices attach to a vehicle.');
+}
+
+async function ownAssetId(id, institutionId) {
+  const a = isUuid(id) ? await prisma.asset.findFirst({ where: { id, institutionId }, select: { id: true } }) : null;
+  if (!a) throw bad(422, 'INVALID_ASSET', 'Person or equipment not found in your institution.');
+  return a.id;
 }
 
 async function ownVehicleId(id, institutionId) {
@@ -113,12 +127,27 @@ router.get('/trips/:id/track', AUTH, wrap(async (req, res) => {
 }));
 
 // ── Devices ──────────────────────────────────────────────────────────
+// A band that reports every 10 minutes is not offline after 5: allow three missed reports.
 const presentDevice = (d) => ({
-  id: d.id, vehicle: d.vehicle, deviceType: d.deviceType, imei: d.imei, simIccid: d.simIccid,
+  id: d.id, vehicle: d.vehicle ?? null, asset: d.asset ?? null, deviceType: d.deviceType, imei: d.imei, simIccid: d.simIccid,
   firmwareVersion: d.firmwareVersion, status: d.status, installedAt: d.installedAt, lastSeenAt: d.lastSeenAt,
-  isOnline: !!d.lastSeenAt && Date.now() - d.lastSeenAt.getTime() < STALE_MS,
+  reportingIntervalS: d.reportingIntervalS, batteryPct: d.lastBatteryPct, hasKey: !!d.apiKeyHash,
+  isOnline: !!d.lastSeenAt && Date.now() - d.lastSeenAt.getTime() < Math.max(STALE_MS, 3000 * (d.reportingIntervalS || 0)),
 });
-const deviceInclude = { vehicle: { select: { id: true, vehicleNumber: true } } };
+
+const serverUrl = (req) => `${req.protocol}://${req.get('host')}`;
+
+/** Setup text for a device, or null for legacy free-text types. The key is only known right after it is made. */
+async function setupGuide(req, device, key) {
+  const t = await prisma.deviceType.findUnique({ where: { code: device.deviceType } });
+  return t && renderSetup(t.setupTemplate, { server: serverUrl(req), key: key || '<device key>', imei: device.imei });
+}
+
+router.get('/device-types', AUTH, wrap(async (_req, res) => {
+  const rows = await prisma.deviceType.findMany({ orderBy: { name: 'asc' } });
+  res.json({ success: true, data: rows.map((t) => ({ code: t.code, name: t.name, family: t.family, adapter: t.adapter, defaultIntervalS: t.defaultIntervalS, capabilities: t.capabilities })) });
+}));
+const deviceInclude = { vehicle: { select: { id: true, vehicleNumber: true } }, asset: { select: { id: true, name: true } } };
 
 async function ownDevice(id, institutionId) {
   const d = isUuid(id) ? await prisma.device.findFirst({ where: { id, institutionId } }) : null;
@@ -138,16 +167,41 @@ router.get('/devices', AUTH, wrap(async (req, res) => {
 
 router.post('/devices', AUTH, wrap(async (req, res) => {
   const { institutionId } = req.user;
-  const { vehicleId, deviceType, imei, simIccid, firmwareVersion, status } = req.body;
+  const { vehicleId, assetId, deviceType, imei, simIccid, firmwareVersion, status } = req.body;
   if (!deviceType || !imei) throw bad(422, 'MISSING_FIELDS', 'vehicleId, deviceType and imei are required.');
   if (status) assertEnum(status, DEVICE_STATUSES, 'status');
-  await ownVehicleId(vehicleId, institutionId);
+  // A device reports for one vehicle or one person/equipment, never both, and only the kind this institution tracks.
+  if (vehicleId && assetId) throw bad(422, 'INVALID_TARGET', 'Choose a vehicle or a person, not both.');
+  await assertTargetAllowed(institutionId, !!assetId);
+  if (assetId) await ownAssetId(assetId, institutionId); else await ownVehicleId(vehicleId, institutionId);
   await assertImeiFree(String(imei));
+  const type = await prisma.deviceType.findUnique({ where: { code: deviceType } });
+  const interval = req.body.reportingIntervalS == null ? type?.defaultIntervalS : Number(req.body.reportingIntervalS);
+  if (interval != null && !(Number.isInteger(interval) && interval >= 1 && interval <= 86400)) throw bad(422, 'INVALID_REPORTINGINTERVALS', 'reportingIntervalS must be a whole number of seconds, 1 to 86400.');
+  const issued = type && ['json', 'osmand'].includes(type.adapter) ? newDeviceKey() : null;   // only these adapters authenticate with a key
   const d = await prisma.device.create({
-    data: { institutionId, vehicleId, deviceType, imei: String(imei), simIccid: simIccid || null, firmwareVersion: firmwareVersion || null, status: status || 'active', installedAt: new Date() },
+    data: {
+      institutionId, vehicleId: assetId ? null : vehicleId, assetId: assetId || null, deviceType, imei: String(imei), simIccid: simIccid || null, firmwareVersion: firmwareVersion || null,
+      status: status || 'active', installedAt: new Date(), apiKeyHash: issued?.hash ?? null, reportingIntervalS: interval ?? null,
+    },
     include: deviceInclude,
   });
-  res.status(201).json({ success: true, data: presentDevice(d) });
+  res.status(201).json({ success: true, data: { ...presentDevice(d), apiKey: issued?.key ?? null, setup: await setupGuide(req, d, issued?.key) } });
+}));
+
+// Setup text again for an existing device; the key itself is never recoverable, only rotated.
+router.get('/devices/:id/setup', AUTH, wrap(async (req, res) => {
+  const d = await ownDevice(req.params.id, req.user.institutionId);
+  res.json({ success: true, data: { setup: await setupGuide(req, d, null), hasKey: !!d.apiKeyHash } });
+}));
+
+router.post('/devices/:id/rotate-key', AUTH, wrap(async (req, res) => {
+  const d = await ownDevice(req.params.id, req.user.institutionId);
+  const type = await prisma.deviceType.findUnique({ where: { code: d.deviceType } });
+  if (!type || !['json', 'osmand'].includes(type.adapter)) throw bad(422, 'NO_DEVICE_KEY', 'This device type does not use a key.');
+  const issued = newDeviceKey();
+  const u = await prisma.device.update({ where: { id: d.id }, data: { apiKeyHash: issued.hash }, include: deviceInclude });
+  res.json({ success: true, data: { ...presentDevice(u), apiKey: issued.key, setup: await setupGuide(req, u, issued.key) } });
 }));
 
 router.put('/devices/:id', AUTH, wrap(async (req, res) => {
@@ -156,9 +210,17 @@ router.put('/devices/:id', AUTH, wrap(async (req, res) => {
   const b = req.body;
   const data = {};
   if (b.status !== undefined) { assertEnum(b.status, DEVICE_STATUSES, 'status'); data.status = b.status; }
-  if (b.vehicleId !== undefined) { await ownVehicleId(b.vehicleId, institutionId); data.vehicleId = b.vehicleId; }
+  if (b.vehicleId && b.assetId) throw bad(422, 'INVALID_TARGET', 'Choose a vehicle or a person, not both.');
+  if (b.assetId || b.vehicleId) await assertTargetAllowed(institutionId, !!b.assetId);
+  if (b.assetId) { await ownAssetId(b.assetId, institutionId); data.assetId = b.assetId; data.vehicleId = null; }
+  else if (b.vehicleId !== undefined) { await ownVehicleId(b.vehicleId, institutionId); data.vehicleId = b.vehicleId; data.assetId = null; }
   if (b.imei !== undefined) { await assertImeiFree(String(b.imei), req.params.id); data.imei = String(b.imei); }
   for (const f of ['deviceType', 'simIccid', 'firmwareVersion']) if (b[f] !== undefined) data[f] = b[f] || null;
+  if (b.reportingIntervalS !== undefined) {
+    const n = b.reportingIntervalS === null ? null : Number(b.reportingIntervalS);
+    if (n !== null && !(Number.isInteger(n) && n >= 1 && n <= 86400)) throw bad(422, 'INVALID_REPORTINGINTERVALS', 'reportingIntervalS must be a whole number of seconds, 1 to 86400.');
+    data.reportingIntervalS = n;
+  }
   if (data.deviceType === null) throw bad(422, 'MISSING_FIELDS', 'deviceType cannot be empty.');
   const d = await prisma.device.update({ where: { id: req.params.id }, data, include: deviceInclude });
   res.json({ success: true, data: presentDevice(d) });

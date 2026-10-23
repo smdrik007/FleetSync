@@ -17,7 +17,8 @@ test('distance: sums segments, ignores GPS jitter and impossible jumps, drives t
   assert.strictEqual(drv.status, 201, JSON.stringify(drv.body));
   let vehicleId;
   try {
-    const model = (await api(ku.token, 'GET', '/fleet/models')).body.data[0];
+    // A global catalog model: the catalog tests create and delete tenant models while this runs.
+    const model = (await api(ku.token, 'GET', '/fleet/models')).body.data.find((m) => m.isGlobal);
     const veh = await api(ku.token, 'POST', '/fleet/vehicles', { vehicleNumber: `DT-${n.slice(-6)}`, plateNumber: `DT-${n}`, modelId: model.id, assignedDriverId: drv.body.data.id });
     assert.strictEqual(veh.status, 201, JSON.stringify(veh.body));
     vehicleId = veh.body.data.id;
@@ -94,8 +95,12 @@ test('distance: sums segments, ignores GPS jitter and impossible jumps, drives t
 
 test('costs: totals are fuel + maintenance (no cancelled, no null cost) and tenant-scoped', async () => {
   const ku = await login('authority@ku.edu.bd');
-  const [costs, fuel, maint] = await Promise.all([
+  // Other smoke files add fuel/maintenance rows to the same demo data while this runs, so compare snapshots
+  // taken together and filter a vehicle in the same round trip.
+  const probe = (await api(ku.token, 'GET', '/fleet/costs')).body.data.byVehicle.find((x) => x.fuelCost > 0);
+  const [costs, fuel, maint, oneRes] = await Promise.all([
     api(ku.token, 'GET', '/fleet/costs'), api(ku.token, 'GET', '/fleet/fuel'), api(ku.token, 'GET', '/fleet/maintenance'),
+    api(ku.token, 'GET', `/fleet/costs?vehicleId=${probe.vehicleId}`),
   ]);
   assert.strictEqual(costs.status, 200, JSON.stringify(costs.body));
   const c = costs.body.data;
@@ -110,8 +115,8 @@ test('costs: totals are fuel + maintenance (no cancelled, no null cost) and tena
   assert.ok(c.costPerKm > 0);
 
   // One vehicle only.
-  const v = c.byVehicle.find((x) => x.fuelCost > 0);
-  const one = (await api(ku.token, 'GET', `/fleet/costs?vehicleId=${v.vehicleId}`)).body.data;
+  const v = c.byVehicle.find((x) => x.vehicleId === probe.vehicleId);
+  const one = oneRes.body.data;
   assert.strictEqual(one.byVehicle.length, 1);
   near(one.totals.total, v.total, 0.011, 'vehicle filter');
 
