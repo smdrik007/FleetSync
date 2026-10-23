@@ -55,6 +55,19 @@ export function formatElapsed(ms: number): string {
   return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
+export type TripSummary = { distanceKm: number | null; durationMinutes: number | null };
+
+/** "12.4 km · 37 min" for the end-of-trip card; a part the server could not provide is left out. */
+export function formatTripSummary(s: TripSummary): string {
+  const parts: string[] = [];
+  if (s.distanceKm !== null) parts.push(`${s.distanceKm.toFixed(1)} km`);
+  if (s.durationMinutes !== null) {
+    const m = s.durationMinutes;
+    parts.push(m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`);
+  }
+  return parts.join(' · ') || 'Trip saved';
+}
+
 // ─── GPS queue ────────────────────────────────────────────────────────
 
 export type Fix = {

@@ -46,7 +46,9 @@ fleetsync/
 │   ├── src/db/              # Prisma client, seed.js, seed-demo.js (demo data for every ER view)
 │   └── scripts/smoke/       # API smoke tests (node:test) incl. tenant-isolation checks
 ├── website/                 # No-build web app, served by the backend
+│   ├── landing.html         # Public landing page (served at /): product, roles, pricing, FAQ
 │   ├── index.html           # Sign in
+│   ├── signup.html          # Create an account (14-day trial)
 │   ├── authority/           # Authority console (single-page, hash router, ES modules)
 │   ├── driver/  passenger/  # Mobile-first driver and passenger apps
 │   ├── style.css  app.js    # Shared design system (dark + light) and client runtime
@@ -71,6 +73,8 @@ Open <http://localhost:3000>, pick an institution and sign in. Seeded demo accou
 | Khulna University | Authority | `authority@ku.edu.bd` |
 | Khulna University | Driver | `rahim@ku.edu.bd`, `karim@ku.edu.bd` |
 | Khulna University | Passenger | `passenger@ku.edu.bd` |
+| Sunrise Care Home (tracks **people**) | Authority | `authority@sunrise.demo` |
+| Sunrise Care Home | Guardian (follows "Aisha Rahman") | `guardian@sunrise.demo` |
 | Apex Logistics Co. | Authority | `authority@apex.com` |
 | Apex Logistics Co. | Driver / Passenger | `sumon@apex.com`, `rafiq@apex.com` / `passenger@apex.com` |
 
@@ -84,7 +88,7 @@ The console is organised by the four views of the ER diagram (`docs/fleetsync_er
 | Fleet | Vehicles, Vehicle Models, Drivers, Routes (ordered stops), Stops | `vehicles`, `vehicle_models`, `drivers`, `routes`, `route_stops`, `stops` |
 | Tracking | Live Map, Trips (GPS replay), Devices | `vehicle_latest_position`, `trips`, `gps_logs`, `devices` |
 | Operations | Maintenance, Fuel Logs, Notifications | `maintenance_records`, `fuel_logs`, `notifications` |
-| Administration | Users, Roles & Permissions, Subscription, Institution | `users`, `user_roles`, `roles`, `permissions`, `role_permissions`, `subscriptions`, `institutions` |
+| Administration | Users, Subscription, Institution | `users`, `user_roles`, `roles`, `subscriptions`, `institutions` |
 
 Press **Ctrl/⌘ + K** anywhere in the console to jump to a screen or find a vehicle, driver, route or stop. Every record is scoped to the signed-in institution; roles (`AUTHORITY` / `DRIVER` / `PASSENGER`) decide access, and the permission matrix is shown for reference.
 

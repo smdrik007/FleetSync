@@ -6,7 +6,7 @@ import { RoleScreen } from '@/components/role-screen';
 import { Stepper } from '@/components/stepper';
 import { type ApiError, api } from '@/lib/api';
 import { endTrip, ensurePermissions, getLive, readTrip, startSharing, subscribeLive, syncTracking } from '@/lib/gps';
-import { formatElapsed, parseRoute } from '@/lib/logic';
+import { formatElapsed, formatTripSummary, parseRoute } from '@/lib/logic';
 import { openSocket } from '@/lib/ws';
 import { radius, useTheme } from '@/lib/theme';
 
@@ -50,6 +50,7 @@ export default function Driver() {
   const [trackError, setTrackError] = useState('');
   const [actionError, setActionError] = useState('');
   const [notice, setNotice] = useState('');
+  const [tripDone, setTripDone] = useState('');
   const [ending, setEnding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -116,6 +117,7 @@ export default function Driver() {
   const start = async () => {
     setBusy(true);
     setActionError('');
+    setTripDone('');
     try {
       await ensurePermissions(); // before creating a server trip we could not track
       const trip = await api.post<{ tripId: string }>('/driver/trips/start');
@@ -134,7 +136,8 @@ export default function Driver() {
     setBusy(true);
     setActionError('');
     try {
-      await endTrip(tripId);
+      const summary = await endTrip(tripId);
+      if (summary) setTripDone(formatTripSummary(summary));
     } catch (e) {
       setActionError((e as Error).message);
     } finally {
@@ -166,6 +169,14 @@ export default function Driver() {
           <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.amber }]} accessibilityLiveRegion="polite">
             <Text style={{ color: t.text, fontSize: 16 }}>{notice}</Text>
             <Button label="Dismiss" variant="secondary" onPress={() => setNotice('')} />
+          </View>
+        ) : null}
+
+        {tripDone ? (
+          <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.green }]} accessibilityLiveRegion="polite">
+            <Text style={{ color: t.text, fontSize: 18, fontWeight: '700' }}>Trip complete</Text>
+            <Text style={{ color: t.text, fontSize: 16 }}>{tripDone}</Text>
+            <Button label="Dismiss" variant="secondary" onPress={() => setTripDone('')} />
           </View>
         ) : null}
 

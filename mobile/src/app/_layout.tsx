@@ -27,6 +27,9 @@ function Routes() {
       <Stack.Protected guard={user?.role === 'PASSENGER'}>
         <Stack.Screen name="passenger" />
       </Stack.Protected>
+      <Stack.Protected guard={user?.role === 'DRIVER' || user?.role === 'PASSENGER'}>
+        <Stack.Screen name="contact" />
+      </Stack.Protected>
       <Stack.Protected guard={user?.role === 'AUTHORITY'}>
         <Stack.Screen name="authority" />
       </Stack.Protected>
