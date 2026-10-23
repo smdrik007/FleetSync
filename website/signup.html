@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FleetSync | Create account</title>
+  <meta name="description" content="Create a FleetSync account to track vehicles, people or things." />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="auth.css" />
+</head>
+<body>
+<button class="theme-fab" id="theme-fab" type="button" aria-label="Toggle theme"></button>
+<main class="login-shell wide" role="main">
+  <div class="brand-panel">
+    <div class="brand-row"><div class="brand-mark" aria-hidden="true">FS</div><div class="brand-logo">Fleet<span>Sync</span></div></div>
+    <h2 class="brand-tagline">Start tracking in minutes. <em>Choose what matters to you.</em></h2>
+    <p class="brand-sub">Your account is set up for what you track, so you only see the screens you need. You can change this later in Institution settings.</p>
+    <ul class="brand-features">
+      <li><span class="feat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v6M15 6v6M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><circle cx="16" cy="18" r="2"/></svg></span><div><strong>Vehicles</strong>Fleet, drivers, routes, trips, maintenance and fuel.</div></li>
+      <li><span class="feat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span><div><strong>People</strong>Trackers worn by people, with guardians, safe zones and alerts.</div></li>
+      <li><span class="feat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg></span><div><strong>Things</strong>Equipment and assets with trackers attached.</div></li>
+    </ul>
+  </div>
+
+  <div class="login-card">
+    <a class="back" href="/"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>Back to home</a>
+    <h1 class="login-title">Create your account</h1>
+    <p class="login-sub">Free 14-day trial. No card needed.</p>
+    <div id="form-error" class="alert alert-danger" style="display:none;" role="alert">
+      <span class="alert-icon" aria-hidden="true">!</span><span id="form-error-msg"></span>
+    </div>
+    <form id="signup-form" novalidate>
+      <fieldset style="border:0;padding:0;margin:0 0 16px">
+        <legend class="form-label" style="margin-bottom:8px">What do you want to track? *</legend>
+        <div class="type-grid" id="type-grid">
+          <label class="type-card"><input type="radio" name="trackingType" value="vehicle" checked />
+            <span class="box"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v6M15 6v6M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><circle cx="16" cy="18" r="2"/></svg><strong>Vehicle</strong>Buses, vans, trucks</span></label>
+          <label class="type-card"><input type="radio" name="trackingType" value="people" />
+            <span class="box"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><strong>People</strong>Children, elders, staff</span></label>
+          <label class="type-card"><input type="radio" name="trackingType" value="things" />
+            <span class="box"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg><strong>Things</strong>Equipment, assets</span></label>
+        </div>
+      </fieldset>
+      <div class="form-group">
+        <label class="form-label" for="institutionName">Organisation name *</label>
+        <input class="form-input" id="institutionName" maxlength="80" placeholder="e.g. Sunrise School" autocomplete="organization" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="name">Your name *</label>
+        <input class="form-input" id="name" maxlength="80" autocomplete="name" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="email">Email *</label>
+        <input class="form-input" id="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="password">Password *</label>
+        <div class="pw-wrap"><input class="form-input" type="password" id="password" autocomplete="new-password" placeholder="At least 8 characters" required /><button class="pw-toggle" id="pw-toggle" type="button" aria-label="Show password">Show</button></div>
+      </div>
+      <button class="btn btn-primary btn-xl" type="submit" id="submit-btn"><span id="submit-text">Create account →</span><span id="spinner" class="spinner" style="display:none;"></span></button>
+    </form>
+    <p class="login-alt">Already have an account? <a href="index.html">Sign in</a></p>
+  </div>
+</main>
+<script src="app.js"></script>
+<script>
+(function init() {
+  const $ = (id) => document.getElementById(id);
+  const SUN = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
+  const MOON = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
+  const fab = $('theme-fab');
+  const paint = () => { fab.innerHTML = Theme.current() === 'light' ? MOON : SUN; fab.setAttribute('aria-label', Theme.current() === 'light' ? 'Switch to dark theme' : 'Switch to light theme'); };
+  fab.addEventListener('click', () => { Theme.toggle(); paint(); }); paint();
+  const pw = $('password'), pwBtn = $('pw-toggle');
+  pwBtn.addEventListener('click', () => { const show = pw.type === 'password'; pw.type = show ? 'text' : 'password'; pwBtn.textContent = show ? 'Hide' : 'Show'; pwBtn.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); });
+  if (Auth.isLoggedIn()) { window.location.href = 'index.html'; return; }   // index.html sends a signed-in user to their own console
+
+  const fail = (msg, field) => { $('form-error-msg').textContent = msg; $('form-error').style.display = 'flex'; if (field) $(field)?.focus(); };
+  $('signup-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('form-error').style.display = 'none';
+    const body = {
+      trackingType: document.querySelector('input[name=trackingType]:checked')?.value,
+      institutionName: $('institutionName').value.trim(), name: $('name').value.trim(), email: $('email').value.trim(), password: pw.value,
+    };
+    if (!body.trackingType) return fail('Choose what you want to track.');
+    if (body.institutionName.length < 2) return fail('Enter your organisation name.', 'institutionName');
+    if (body.name.length < 2) return fail('Enter your name.', 'name');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) return fail('Enter a valid email address.', 'email');
+    if (body.password.length < 8) return fail('Password must be at least 8 characters.', 'password');
+    $('submit-btn').disabled = true; $('submit-text').style.display = 'none'; $('spinner').style.display = 'block';
+    try {
+      const data = await Api.post('/auth/signup', body);
+      Auth.save(data.token, data.user);
+      window.location.href = 'authority/index.html';
+    } catch (err) {
+      fail(err.message || 'Could not create the account. Please try again.', err.code === 'EMAIL_EXISTS' ? 'email' : null);
+      $('submit-btn').disabled = false; $('submit-text').style.display = 'inline'; $('spinner').style.display = 'none';
+    }
+  });
+})();
+</script>
+</body>
+</html>

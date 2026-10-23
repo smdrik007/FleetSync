@@ -26,7 +26,7 @@ const Theme = {
   init() {
     let saved = null;
     try { saved = localStorage.getItem(this._key); } catch { /* storage blocked */ }
-    this._apply(saved === 'dark' ? 'dark' : 'light'); // light unless the user chose dark
+    this._apply(saved === 'light' ? 'light' : 'dark'); // dark unless the user chose light
   },
   toggle() {
     const next = this.current() === 'light' ? 'dark' : 'light';
@@ -83,7 +83,7 @@ const Auth = {
   require(expectedRole) {
     if (!this.isLoggedIn()) { window.location.href = '/index.html'; return false; }
     if (expectedRole && this.role() !== expectedRole) {
-      const map = { AUTHORITY: '/authority/index.html', DRIVER: '/driver/index.html', PASSENGER: '/passenger/index.html' };
+      const map = { AUTHORITY: '/authority/index.html', DRIVER: '/driver/index.html', PASSENGER: '/passenger/index.html', GUARDIAN: '/guardian/index.html' };
       window.location.href = map[this.role()] || '/index.html';
       return false;
     }

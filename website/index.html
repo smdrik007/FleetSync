@@ -3,54 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FleetSync — Sign In</title>
-  <meta name="description" content="Sign in to FleetSync — multi-tenant vehicle management and live tracking platform." />
+  <title>FleetSync | Sign in</title>
+  <meta name="description" content="Sign in to FleetSync, the vehicle, people and asset tracking platform for institutions." />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
-  <style>
-    body {
-      display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px;
-      background:
-        radial-gradient(ellipse 60% 50% at 15% 20%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
-        radial-gradient(ellipse 50% 45% at 90% 85%, color-mix(in srgb, var(--accent2) 14%, transparent), transparent 70%),
-        var(--bg);
-    }
-    .theme-fab { position: fixed; top: 16px; right: 16px; width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--tx); }
-    .theme-fab:hover { color: var(--text); border-color: var(--border2); }
-
-    .login-shell { display: grid; grid-template-columns: 1fr 440px; gap: 64px; align-items: center; width: 100%; max-width: 1000px; }
-
-    .brand-panel { padding: 0 8px; }
-    .brand-row { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
-    .brand-mark { width: 46px; height: 46px; border-radius: 13px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; font-weight: 800; font-size: 1.05rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 35%, transparent); }
-    .brand-logo { font-size: 1.7rem; font-weight: 800; letter-spacing: -.8px; }
-    .brand-logo span { color: var(--accent); }
-    .brand-tagline { font-size: 2rem; font-weight: 800; letter-spacing: -1px; line-height: 1.15; margin-bottom: 14px; }
-    .brand-tagline em { font-style: normal; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    .brand-sub { font-size: .95rem; color: var(--text-2); line-height: 1.7; max-width: 440px; }
-    .brand-features { list-style: none; margin-top: 28px; display: grid; gap: 14px; }
-    .brand-features li { display: flex; align-items: flex-start; gap: 12px; font-size: .86rem; color: var(--text-2); }
-    .feat-icon { width: 30px; height: 30px; flex-shrink: 0; border-radius: 9px; background: var(--accent-bg); color: var(--accent); display: flex; align-items: center; justify-content: center; }
-    .brand-features strong { display: block; color: var(--text); font-size: .88rem; }
-
-    .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 36px 34px; box-shadow: var(--shadow); }
-    .login-title { font-size: 1.35rem; font-weight: 800; letter-spacing: -.4px; margin-bottom: 6px; }
-    .login-sub { font-size: .84rem; color: var(--muted); margin-bottom: 24px; }
-    .pw-wrap { position: relative; }
-    .pw-wrap .form-input { padding-right: 64px; }
-    .pw-toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); font-size: .74rem; font-weight: 700; cursor: pointer; padding: 6px 8px; border-radius: 6px; }
-    .pw-toggle:hover { color: var(--text); background: var(--surface2); }
-
-    @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
-    .brand-panel > *, .login-card { animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
-    .brand-tagline { animation-delay: .08s; } .brand-sub { animation-delay: .16s; } .brand-features { animation-delay: .24s; } .login-card { animation-delay: .2s; }
-
-    @media (max-width: 860px) {
-      .login-shell { grid-template-columns: 1fr; gap: 28px; max-width: 460px; }
-      .brand-tagline { font-size: 1.5rem; }
-      .brand-features { display: none; }
-      .brand-row { margin-bottom: 16px; }
-    }
-  </style>
+  <link rel="stylesheet" href="auth.css" />
 </head>
 <body>
 <button class="theme-fab" id="theme-fab" type="button" aria-label="Toggle theme"></button>
@@ -60,7 +17,7 @@
   <!-- ─── Brand panel ─── -->
   <div class="brand-panel">
     <div class="brand-row"><div class="brand-mark" aria-hidden="true">FS</div><div class="brand-logo">Fleet<span>Sync</span></div></div>
-    <h2 class="brand-tagline">Every vehicle, driver and route — <em>live in one place.</em></h2>
+    <h2 class="brand-tagline">Every vehicle, driver and route, <em>live in one place.</em></h2>
     <p class="brand-sub">A multi-tenant platform for any organisation: track your fleet in real time, assign drivers instantly, and give passengers live vehicle locations.</p>
     <ul class="brand-features">
       <li><span class="feat-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><div><strong>Live tracking</strong>GPS positions update on the map in under a second.</div></li>
@@ -71,8 +28,9 @@
 
   <!-- ─── Login card ─── -->
   <div class="login-card">
-    <h1 class="login-title">Sign In</h1>
-    <p class="login-sub">Select your institution, then enter your credentials.</p>
+    <a class="back" href="/"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>Back to home</a>
+    <h1 class="login-title">Welcome back</h1>
+    <p class="login-sub">Choose your institution, then sign in.</p>
 
     <div id="login-error" class="alert alert-danger" style="display:none;" role="alert">
       <span class="alert-icon" aria-hidden="true">!</span>
@@ -81,7 +39,7 @@
 
     <form id="login-form" novalidate>
 
-      <!-- Institution selector — FR-AUTH-01 -->
+      <!-- Institution selector - FR-AUTH-01 -->
       <div class="form-group">
         <label class="form-label" for="institution">Institution</label>
         <select class="form-select" id="institution" name="institution" required>
@@ -90,7 +48,7 @@
         <div class="form-hint">Choose your institution from the list.</div>
       </div>
 
-      <!-- Email or Phone — FR-AUTH-02 -->
+      <!-- Email or Phone - FR-AUTH-02 -->
       <div class="form-group">
         <label class="form-label" for="email">Email or Phone Number</label>
         <input
@@ -99,7 +57,7 @@
         />
       </div>
 
-      <!-- Password — FR-AUTH-02 -->
+      <!-- Password - FR-AUTH-02 -->
       <div class="form-group">
         <label class="form-label" for="password">Password</label>
         <div class="pw-wrap"><input class="form-input" type="password" id="password" name="password" placeholder="••••••••" autocomplete="current-password" required /><button class="pw-toggle" id="pw-toggle" type="button" aria-label="Show password">Show</button></div>
@@ -111,6 +69,7 @@
       </button>
 
     </form>
+    <p class="login-alt">New to FleetSync? <a href="signup.html">Create an account</a></p>
   </div>
 
 </main>
@@ -119,8 +78,10 @@
 <script>
 (async function init() {
   // theme toggle + show/hide password
+  const SUN = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
+  const MOON = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
   const fab = document.getElementById('theme-fab');
-  const paint = () => { fab.textContent = Theme.current() === 'light' ? '☾' : '☀'; fab.setAttribute('aria-label', Theme.current() === 'light' ? 'Switch to dark theme' : 'Switch to light theme'); };
+  const paint = () => { fab.innerHTML = Theme.current() === 'light' ? MOON : SUN; fab.setAttribute('aria-label', Theme.current() === 'light' ? 'Switch to dark theme' : 'Switch to light theme'); };
   fab.addEventListener('click', () => { Theme.toggle(); paint(); }); paint();
   const pw = document.getElementById('password'); const pwBtn = document.getElementById('pw-toggle');
   pwBtn.addEventListener('click', () => { const show = pw.type === 'password'; pw.type = show ? 'text' : 'password'; pwBtn.textContent = show ? 'Hide' : 'Show'; pwBtn.setAttribute('aria-label', show ? 'Hide password' : 'Show password'); });
@@ -128,28 +89,30 @@
   // Redirect if already logged in
   if (Auth.isLoggedIn()) {
     const role = Auth.role();
-    const map = { AUTHORITY: 'authority/index.html', DRIVER: 'driver/index.html', PASSENGER: 'passenger/index.html' };
+    const map = { AUTHORITY: 'authority/index.html', DRIVER: 'driver/index.html', PASSENGER: 'passenger/index.html', GUARDIAN: 'guardian/index.html' };
     window.location.href = map[role] || 'index.html';
     return;
   }
 
-  // Load institutions — FR-AUTH-01
+  // Load institutions - FR-AUTH-01
   try {
     const institutions = await Api.get('/institutions');
     const sel = document.getElementById('institution');
-    sel.innerHTML = '<option value="">— Select Institution —</option>';
+    sel.innerHTML = '<option value="">Select your institution</option>';
     institutions.forEach((inst) => {
       const opt = document.createElement('option');
       opt.value       = inst.id;
       opt.textContent = inst.name;
       sel.appendChild(opt);
     });
+    let last = null; try { last = localStorage.getItem('fs_last_inst'); } catch { /* storage blocked */ }
+    if (last && institutions.some((i) => String(i.id) === last)) sel.value = last;
   } catch (e) {
     console.error('Failed to load institutions:', e);
     document.getElementById('institution').innerHTML = '<option value="">Failed to load institutions</option>';
   }
 
-  // Login form submit — FR-AUTH-02, FR-AUTH-03
+  // Login form submit - FR-AUTH-02, FR-AUTH-03
   document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const institutionId = document.getElementById('institution').value;
@@ -173,8 +136,9 @@
     try {
       const data = await Api.post('/auth/login', { institutionId, email, password });
       Auth.save(data.token, data.user);
-      // Redirect by role — FR-AUTH-03
-      const redirectMap = { AUTHORITY: 'authority/index.html', DRIVER: 'driver/index.html', PASSENGER: 'passenger/index.html' };
+      try { localStorage.setItem('fs_last_inst', String(institutionId)); } catch { /* storage blocked */ }
+      // Redirect by role - FR-AUTH-03
+      const redirectMap = { AUTHORITY: 'authority/index.html', DRIVER: 'driver/index.html', PASSENGER: 'passenger/index.html', GUARDIAN: 'guardian/index.html' };
       window.location.href = redirectMap[data.user.role] || 'index.html';
     } catch (err) {
       errMsgEl.textContent    = err.message || 'Login failed. Please try again.';

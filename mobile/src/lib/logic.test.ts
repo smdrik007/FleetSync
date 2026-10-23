@@ -2,7 +2,7 @@ import assert from 'node:assert';
 import test from 'node:test';
 import {
   type Row, type TripState,
-  flushAction, flushQueue, formatElapsed, haversine, milestoneIndex, parseRoute, reconcile, startWhenForeground, timeAgo, toPoint,
+  flushAction, flushQueue, formatElapsed, formatTripSummary, haversine, milestoneIndex, parseRoute, reconcile, startWhenForeground, timeAgo, toPoint,
 } from './logic.ts';
 
 // ─── route parsing / stepper ──────────────────────────────────────────
@@ -38,6 +38,13 @@ test('timeAgo switches from seconds to minutes and pluralises', () => {
   assert.strictEqual(timeAgo(now - 45_000, now), '45s ago');
   assert.strictEqual(timeAgo(now - 60_000, now), '1 minute ago');
   assert.strictEqual(timeAgo(now - 190_000, now), '3 minutes ago');
+});
+
+test('formatTripSummary shows distance and duration, and skips what the server did not send', () => {
+  assert.strictEqual(formatTripSummary({ distanceKm: 12.43, durationMinutes: 37 }), '12.4 km · 37 min');
+  assert.strictEqual(formatTripSummary({ distanceKm: 0, durationMinutes: 62 }), '0.0 km · 1 h 2 min');
+  assert.strictEqual(formatTripSummary({ distanceKm: null, durationMinutes: 5 }), '5 min');
+  assert.strictEqual(formatTripSummary({ distanceKm: null, durationMinutes: null }), 'Trip saved');
 });
 
 test('formatElapsed pads minutes and seconds and shows hours only when needed', () => {

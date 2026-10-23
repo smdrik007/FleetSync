@@ -3,8 +3,8 @@
  * Screens come from nav.js; entities are loaded lazily through the shared list cache.
  */
 import { h, icon, matches } from './ui.js';
-import { NAV } from './nav.js';
-import { Lists } from './data.js';
+import { navFor } from './nav.js';
+import { Lists, Tenant } from './data.js';
 import { navigate } from './router.js';
 
 let open = false;
@@ -14,7 +14,7 @@ export async function openPalette() {
   open = true;
   const opener = document.activeElement;
 
-  const input = h('input', { type: 'text', placeholder: 'Jump to a screen, or search vehicles, drivers, routes…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false', role: 'combobox', 'aria-expanded': 'true', 'aria-controls': 'palette-list' });
+  const input = h('input', { type: 'text', placeholder: Tenant.isFleet() ? 'Jump to a screen, or search vehicles, drivers, routes…' : 'Jump to a screen, or search people…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false', role: 'combobox', 'aria-expanded': 'true', 'aria-controls': 'palette-list' });
   const list = h('div', { class: 'palette-list', id: 'palette-list', role: 'listbox' });
   const overlay = h('div', { class: 'palette-overlay', onmousedown: (e) => { if (e.target === overlay) close(); } },
     h('div', { class: 'palette', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Command palette' },
@@ -22,13 +22,22 @@ export async function openPalette() {
   document.body.append(overlay);
   input.focus();
 
-  const screens = NAV.flatMap((g) => g.items.map((i) => ({ kind: 'Screens', label: i.label, sub: g.group, icon: i.icon, hint: i.hint, run: () => navigate(i.path) })));
+  const screens = navFor(Tenant.trackingType).flatMap((g) => g.items.map((i) => ({ kind: 'Screens', label: i.label, sub: g.group, icon: i.icon, hint: i.hint, run: () => navigate(i.path) })));
   let entities = [];
   let results = [];
   let sel = 0;
 
   // Entities load in the background; results refresh when they arrive.
-  Promise.all([Lists.vehicles(), Lists.drivers(), Lists.routes(), Lists.stops()]).then(([vehicles, drivers, routes, stops]) => {
+  const loadEntities = Tenant.isFleet()
+    ? Promise.all([Lists.vehicles(), Lists.drivers(), Lists.routes(), Lists.stops()])
+    : Api.get('/fleet/people').then((people) => [people]);
+  loadEntities.then((loaded) => {
+    if (!Tenant.isFleet()) {
+      entities = loaded[0].map((p) => ({ kind: 'People', label: p.name, sub: p.code ? `ID ${p.code}` : 'Person', icon: 'user', keys: [p.name, p.code], run: () => navigate(`/tracking/people/${p.id}`) }));
+      if (open) render();
+      return;
+    }
+    const [vehicles, drivers, routes, stops] = loaded;
     entities = [
       ...vehicles.map((v) => ({ kind: 'Vehicles', label: v.vehicleNumber, sub: `${v.plateNumber}${v.assignedDriver ? ` · ${v.assignedDriver.name}` : ''}`, icon: 'bus', keys: [v.vehicleNumber, v.plateNumber, v.assignedDriver?.name], run: () => navigate(`/fleet/vehicles/${v.id}`) })),
       ...drivers.map((d) => ({ kind: 'Drivers', label: d.name, sub: d.licenseNumber, icon: 'idcard', keys: [d.name, d.licenseNumber, d.email, d.phone], run: () => navigate(`/fleet/drivers/${d.id}`) })),
@@ -43,7 +52,7 @@ export async function openPalette() {
     const sc = q ? screens.filter((s) => matches(q, s.label, s.sub, s.hint)) : screens;
     const en = q.length >= 2 ? entities.filter((e) => matches(q, ...e.keys)) : [];
     const grouped = [];
-    for (const kind of ['Screens', 'Vehicles', 'Drivers', 'Routes', 'Stops']) {
+    for (const kind of ['Screens', 'Vehicles', 'Drivers', 'Routes', 'Stops', 'People']) {
       const rows = (kind === 'Screens' ? sc : en.filter((e) => e.kind === kind)).slice(0, kind === 'Screens' ? 8 : 5);
       if (rows.length) grouped.push([kind, rows]);
     }

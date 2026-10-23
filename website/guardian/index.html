@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FleetSync | Where is my person</title>
+  <meta name="description" content="Follow the people you look after: live location, safe zones and alerts." />
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="../app.js"></script>
+</head>
+<body class="m-app">
+
+<header class="m-top">
+  <div class="logo-mark" aria-hidden="true">FS</div>
+  <div class="m-title">Where is my person<small id="guardian-name">&nbsp;</small></div>
+  <div class="m-actions">
+    <div class="ws-pill" role="status" aria-live="polite"><i class="dot-live off" id="ws-dot"></i><span id="ws-text">Connecting</span></div>
+    <button class="top-btn" id="theme-btn" type="button" aria-label="Toggle theme"></button>
+    <button class="top-btn" id="logout-btn" type="button" aria-label="Sign out"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg></button>
+  </div>
+</header>
+
+<main class="m-content">
+
+  <div class="form-group" style="margin:0" id="pick-wrap">
+    <label class="form-label" for="person-select">Choose a person</label>
+    <select class="form-select" id="person-select"><option value="">Loading…</option></select>
+  </div>
+
+  <div id="sos-banner" class="alert alert-danger hidden" role="alert" style="margin:0"><span class="alert-icon" aria-hidden="true">!</span><span id="sos-text"></span></div>
+  <div id="stale-banner" class="alert alert-warning hidden" role="status" aria-live="polite" style="margin:0"><span class="alert-icon" aria-hidden="true">!</span><span id="stale-text"></span></div>
+
+  <div class="m-map" id="map-wrap">
+    <div id="map" style="height:100%;width:100%"></div>
+    <div class="m-map-badge" id="map-live-badge"></div>
+  </div>
+
+  <div id="person-card" class="m-card hidden">
+    <div class="m-row">
+      <div>
+        <div class="m-label">Following</div>
+        <div class="m-vehicle" id="p-name" style="font-size:1.5rem">—</div>
+        <div class="m-sub" id="p-sub"></div>
+      </div>
+      <div id="p-status"></div>
+    </div>
+    <div style="margin-top:14px" id="p-facts" class="text-sm"></div>
+    <div style="margin-top:16px">
+      <div class="m-row" style="align-items:center">
+        <div class="m-label">Safe zones</div>
+        <button class="btn btn-outline btn-sm" id="add-zone-btn" type="button">+ Add safe zone</button>
+      </div>
+      <div id="zone-list" class="text-sm" style="margin-top:6px"></div>
+    </div>
+  </div>
+
+  <div id="empty-card" class="m-card m-hero hidden">
+    <div class="empty-state-title">No one linked to you yet</div>
+    <div class="empty-state-sub" style="margin:6px auto 0">Ask your institution to link you to the person you look after.</div>
+  </div>
+
+  <div id="alerts-card" class="m-card hidden">
+    <div class="m-label">Recent alerts</div>
+    <div id="alerts-list" style="margin-top:8px"></div>
+  </div>
+
+</main>
+
+<!-- Add safe zone: radius first, then search or tap the map to place the centre. -->
+<div class="modal-overlay hidden" id="zone-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="zone-title" style="max-width:640px">
+    <div class="modal-head"><h2 id="zone-title">Add safe zone</h2>
+      <button class="btn btn-ghost btn-sm" type="button" id="zone-close" aria-label="Close">✕</button></div>
+    <div class="modal-body">
+      <div id="zone-error" class="alert alert-danger hidden" role="alert"></div>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label" for="zone-name">Zone name *</label>
+          <input class="form-input" id="zone-name" placeholder="Home, School…" autocomplete="off" /></div>
+        <div class="form-group"><label class="form-label" for="zone-radius">Radius (metres) *</label>
+          <input class="form-input" id="zone-radius" type="number" min="20" max="50000" step="10" value="200" />
+          <div class="flex gap-2 wrap" style="margin-top:6px" id="radius-presets"></div></div>
+      </div>
+      <div class="form-group" style="margin-top:4px">
+        <label class="form-label" for="zone-search">Find a place</label>
+        <div class="flex gap-2">
+          <input class="form-input" id="zone-search" placeholder="Search a school, road or area" autocomplete="off" />
+          <button class="btn btn-outline" type="button" id="zone-search-btn">Search</button>
+        </div>
+        <div id="zone-results" style="margin-top:6px"></div>
+      </div>
+      <div class="flex gap-2 wrap items-center" style="margin:4px 0 8px">
+        <span class="text-xs text-muted" id="zone-hint">Tap the map to set the centre of the zone.</span>
+        <button class="btn btn-ghost btn-sm" type="button" id="zone-here">Use current position</button>
+      </div>
+      <div id="zone-map" class="map-box" style="height:300px"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-outline" type="button" id="zone-cancel">Cancel</button>
+      <button class="btn btn-primary" type="button" id="zone-save" disabled>Save zone</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+/* Guardian page: live position, safe zones, last 24 h trail and alerts for the linked people.
+   All text goes in with textContent: names and alert text are entered by other users. */
+const $ = (id) => document.getElementById(id);
+const SUN = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
+const MOON = '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>';
+
+let map, marker, zoneLayer, trailLayer;
+let people = [], selected = null;
+
+(async function init() {
+  if (!Auth.require('GUARDIAN')) return;
+  $('guardian-name').textContent = Auth.user()?.name || '';
+  const paintTheme = () => { $('theme-btn').innerHTML = Theme.current() === 'light' ? MOON : SUN; };
+  $('theme-btn').addEventListener('click', () => { Theme.toggle(); paintTheme(); }); paintTheme();
+  $('logout-btn').onclick = () => { Auth.clear(); window.location.href = '../index.html'; };
+
+  map = L.map('map', { zoomControl: true }).setView([22.82, 89.55], 12);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 }).addTo(map);
+  zoneLayer = L.layerGroup().addTo(map);
+  trailLayer = L.layerGroup().addTo(map);
+
+  WsManager.connect();
+  const paintWs = (s) => { const on = s === 'connected'; $('ws-dot').className = `dot-live ${on ? '' : 'warn'}`; $('ws-text').textContent = on ? 'Live' : 'Reconnecting'; };
+  WsManager.on('status', paintWs); paintWs(WsManager.status);
+  WsManager.on('asset.location', onMove);
+  WsManager.on('notification.new', () => loadAlerts());
+
+  $('person-select').onchange = function () { select(this.value); };
+  await load();
+  setupZoneModal();   // after the first await, so the zone helpers declared further down exist
+  setInterval(() => selected && paintFacts(), 30000);   // "x min ago" and the stale warning age without any event
+})();
+
+async function load() {
+  try {
+    people = await Api.get('/guardian/people');
+  } catch (err) { Toast.error('Could not load: ' + err.message); return; }
+  const sel = $('person-select');
+  sel.replaceChildren(...people.map((p) => new Option(p.name, p.id)));
+  $('pick-wrap').classList.toggle('hidden', people.length < 2);
+  $('empty-card').classList.toggle('hidden', people.length > 0);
+  $('map-wrap').classList.toggle('hidden', people.length === 0);
+  if (people.length) await select(people[0].id);
+  loadAlerts();
+}
+
+async function select(id) {
+  selected = people.find((p) => p.id === id) || null;
+  if (!selected) return;
+  $('person-select').value = id;
+  $('person-card').classList.remove('hidden');
+  $('p-name').textContent = selected.name;
+  $('p-sub').textContent = selected.kind === 'equipment' ? 'Equipment' : 'Person';
+  zoneLayer.clearLayers(); trailLayer.clearLayers();
+  if (marker) { marker.remove(); marker = null; }
+  const pts = [];
+  selected.geofences.forEach((z) => {
+    const tip = Object.assign(document.createElement('span'), { textContent: z.name });
+    L.circle([z.latitude, z.longitude], { radius: z.radiusM, color: '#2e9d6b', weight: 2, fillOpacity: 0.12 }).bindTooltip(tip).addTo(zoneLayer);
+    pts.push([z.latitude, z.longitude]);
+  });
+  try {
+    const trail = await Api.get(`/guardian/people/${id}/track?hours=24`);
+    if (trail.length > 1) L.polyline(trail.map((t) => [t.lat, t.lng]), { color: '#2ee6c5', weight: 3, opacity: 0.6 }).addTo(trailLayer);
+  } catch { /* the trail is optional */ }
+  if (selected.position) { setMarker(selected.position); pts.push([selected.position.lat, selected.position.lng]); }
+  if (pts.length === 1) map.setView(pts[0], 16);
+  else if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 16 });
+  paintFacts();
+  paintZones();
+}
+
+function setMarker(pos) {
+  const cls = pos.sos ? 'maintenance' : pos.isStale ? 'stale' : 'live';
+  const initials = selected.name.split(/\s+/).map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+  const icon = L.divIcon({ className: '', html: `<div class="fs-marker ${cls}"></div>`, iconSize: [30, 30], iconAnchor: [15, 15] });
+  if (marker) { marker.setLatLng([pos.lat, pos.lng]); marker.setIcon(icon); }
+  else marker = L.marker([pos.lat, pos.lng], { icon }).addTo(map);
+  marker.getElement()?.querySelector('.fs-marker')?.replaceChildren(document.createTextNode(initials));
+}
+
+function ago(iso) {
+  const secs = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  if (secs < 60) return 'just now';
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  return hrs < 24 ? `${hrs} h ago` : `${Math.floor(hrs / 24)} d ago`;
+}
+
+function paintFacts() {
+  const p = selected, pos = p.position;
+  const facts = $('p-facts');
+  facts.replaceChildren();
+  const row = (k, v) => { const d = document.createElement('div'); d.style.cssText = 'display:flex;justify-content:space-between;padding:4px 0'; const a = document.createElement('span'); a.className = 'text-muted'; a.textContent = k; const b = document.createElement('strong'); b.textContent = v; d.append(a, b); facts.append(d); };
+  const badge = document.createElement('span');
+  if (p.trackingPaused) { badge.className = 'badge badge-muted'; badge.textContent = 'Tracking paused'; }
+  else if (!pos) { badge.className = 'badge badge-muted'; badge.textContent = 'No position yet'; }
+  else if (pos.isStale) { badge.className = 'badge badge-amber'; badge.textContent = 'Last seen ' + ago(pos.recordedAt); }
+  else { badge.className = 'badge badge-green badge-dot'; badge.textContent = 'Live'; }
+  $('p-status').replaceChildren(badge);
+  $('map-live-badge').replaceChildren(badge.cloneNode(true));
+
+  if (pos) row('Last update', ago(pos.recordedAt));
+  if (pos?.batteryPct != null) row('Battery', Math.round(pos.batteryPct) + '%');
+
+  $('sos-banner').classList.toggle('hidden', !pos?.sos);
+  if (pos?.sos) $('sos-text').textContent = `${p.name} pressed the SOS button.`;
+  const showStale = !!pos && pos.isStale && !p.trackingPaused;
+  $('stale-banner').classList.toggle('hidden', !showStale);
+  if (showStale) $('stale-text').textContent = `No signal: last update ${ago(pos.recordedAt)}.`;
+}
+
+function onMove(d) {
+  const p = people.find((x) => x.id === d.assetId);
+  if (!p) return;
+  p.position = { lat: d.latitude, lng: d.longitude, speed: d.speed, batteryPct: d.batteryPct, sos: !!d.sos, recordedAt: d.timestamp, isStale: false };
+  if (selected && selected.id === p.id) { setMarker(p.position); map.panTo([d.latitude, d.longitude]); paintFacts(); }
+}
+
+/* ─── Safe zones ─────────────────────────────────────────────────── */
+const fmtRadius = (m) => (m >= 1000 ? `${m / 1000} km` : `${m} m`);
+const note = (text) => Object.assign(document.createElement('div'), { className: 'text-xs text-muted', textContent: text });
+
+function paintZones() {
+  const list = $('zone-list');
+  list.replaceChildren(...selected.geofences.map((z) => {
+    const d = document.createElement('div'); d.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border)';
+    const t = document.createElement('div'); t.textContent = `${z.name} · ${fmtRadius(z.radiusM)}`;
+    const b = document.createElement('button'); b.className = 'btn btn-ghost btn-sm'; b.type = 'button'; b.textContent = 'Remove';
+    b.setAttribute('aria-label', `Remove safe zone ${z.name}`);
+    b.onclick = async () => {
+      if (!confirm(`Remove the safe zone "${z.name}"?`)) return;
+      try { replacePerson(await Api.delete(`/guardian/people/${selected.id}/geofences/${z.id}`)); Toast.success('Safe zone removed.'); }
+      catch (err) { Toast.error(err.message); }
+    };
+    d.append(t, b); return d;
+  }));
+  if (!selected.geofences.length) list.append(note('No safe zones yet. Add one to get an alert when they leave it.'));
+}
+
+/** Swap in the server's copy of a person after a change and redraw. */
+function replacePerson(p) {
+  people = people.map((x) => (x.id === p.id ? p : x));
+  select(p.id);
+}
+
+const Z = { map: null, center: null, circle: null, marker: null };
+
+function setupZoneModal() {
+  const close = () => $('zone-modal').classList.add('hidden');
+  $('zone-close').onclick = close; $('zone-cancel').onclick = close;
+  $('zone-modal').addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+  $('add-zone-btn').onclick = openZoneModal;
+  [100, 200, 500, 1000].forEach((m) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-outline btn-sm'; b.textContent = fmtRadius(m);
+    b.onclick = () => { $('zone-radius').value = m; drawZone(); };
+    $('radius-presets').append(b);
+  });
+  $('zone-radius').addEventListener('input', drawZone);
+  $('zone-search-btn').onclick = searchPlace;
+  $('zone-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); searchPlace(); } });
+  $('zone-here').onclick = () => { const p = selected?.position; if (p) placeCenter(p.lat, p.lng, true); };
+  $('zone-save').onclick = saveZone;
+}
+
+function openZoneModal() {
+  $('zone-modal').classList.remove('hidden');
+  $('zone-error').classList.add('hidden');
+  $('zone-name').value = ''; $('zone-search').value = ''; $('zone-results').replaceChildren();
+  $('zone-here').classList.toggle('hidden', !selected?.position);
+  $('zone-hint').textContent = 'Tap the map to set the centre of the zone.';
+  Z.center = null; $('zone-save').disabled = true;
+  if (!Z.map) {
+    Z.map = L.map('zone-map').setView(map.getCenter(), 15);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 19 }).addTo(Z.map);
+    Z.map.on('click', (e) => placeCenter(e.latlng.lat, e.latlng.lng, false));
+  } else Z.map.setView(map.getCenter(), 15);
+  if (Z.circle) { Z.circle.remove(); Z.circle = null; }
+  if (Z.marker) { Z.marker.remove(); Z.marker = null; }
+  setTimeout(() => Z.map.invalidateSize(), 50);   // the map was measured while the dialog was hidden
+  setTimeout(() => $('zone-name').focus(), 60);
+}
+
+const radius = () => Number($('zone-radius').value);
+
+function placeCenter(lat, lng, pan) {
+  Z.center = { lat: +lat.toFixed(6), lng: +lng.toFixed(6) };
+  if (Z.marker) Z.marker.setLatLng([lat, lng]); else Z.marker = L.marker([lat, lng]).addTo(Z.map);
+  drawZone();
+  if (pan) Z.map.setView([lat, lng], Math.max(Z.map.getZoom(), 15));
+  $('zone-hint').textContent = 'Centre set. Tap elsewhere to move it.';
+  $('zone-save').disabled = false;
+}
+
+function drawZone() {
+  if (!Z.center) return;
+  const r = Math.max(20, Math.min(50000, radius() || 20));
+  if (Z.circle) { Z.circle.setLatLng([Z.center.lat, Z.center.lng]); Z.circle.setRadius(r); }
+  else Z.circle = L.circle([Z.center.lat, Z.center.lng], { radius: r, color: '#2e9d6b', weight: 2, fillOpacity: 0.15 }).addTo(Z.map);
+}
+
+// shortcut: public OpenStreetMap Nominatim (about 1 request per second, no key). Use a self-hosted or paid geocoder when many tenants search.
+async function searchPlace() {
+  const q = $('zone-search').value.trim();
+  const out = $('zone-results');
+  if (q.length < 3) { out.replaceChildren(note('Type at least 3 letters.')); return; }
+  $('zone-search-btn').disabled = true;
+  try {
+    const c = Z.map.getCenter();
+    // viewbox prefers places near the map without excluding others
+    const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=en&q=${encodeURIComponent(q)}`
+      + `&viewbox=${c.lng - 1},${c.lat + 1},${c.lng + 1},${c.lat - 1}`;
+    const res = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!res.ok) throw new Error(`Search failed (${res.status}).`);
+    const hits = await res.json();
+    out.replaceChildren(...(hits.length ? hits.map((hit) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-ghost btn-sm';
+      b.style.cssText = 'display:block;width:100%;text-align:left;white-space:normal;height:auto;padding:6px 8px';
+      b.textContent = hit.display_name;
+      b.onclick = () => {
+        placeCenter(Number(hit.lat), Number(hit.lon), true);
+        out.replaceChildren();
+        if (!$('zone-name').value) $('zone-name').value = hit.name || hit.display_name.split(',')[0];
+      };
+      return b;
+    }) : [note('No places found. Try another name, or tap the map.')]));
+  } catch (err) {
+    out.replaceChildren(note(`${err.message} You can still tap the map.`));
+  } finally { $('zone-search-btn').disabled = false; }
+}
+
+async function saveZone() {
+  const err = $('zone-error');
+  const fail = (msg) => { err.textContent = msg; err.classList.remove('hidden'); };
+  const name = $('zone-name').value.trim(), r = radius();
+  if (!name) return fail('Give the zone a name.');
+  if (!Number.isInteger(r) || r < 20 || r > 50000) return fail('Radius must be a whole number of metres from 20 to 50000.');
+  if (!Z.center) return fail('Tap the map or pick a search result to set the centre.');
+  $('zone-save').disabled = true;
+  try {
+    const p = await Api.post(`/guardian/people/${selected.id}/geofences`, { name, radiusM: r, latitude: Z.center.lat, longitude: Z.center.lng });
+    $('zone-modal').classList.add('hidden');
+    Toast.success('Safe zone added.');
+    replacePerson(p);
+  } catch (e) { fail(e.message); $('zone-save').disabled = false; }
+}
+
+async function loadAlerts() {
+  try {
+    const { items } = await Api.get('/fleet/notifications');
+    const list = $('alerts-list');
+    list.replaceChildren(...items.slice(0, 8).map((n) => {
+      const d = document.createElement('div'); d.style.cssText = 'padding:6px 0;border-top:1px solid var(--border)';
+      const t = document.createElement('div'); t.style.fontWeight = '700'; t.textContent = n.title;
+      const m = document.createElement('div'); m.className = 'text-xs text-muted'; m.textContent = `${n.message} · ${ago(n.createdAt)}`;
+      d.append(t, m); return d;
+    }));
+    $('alerts-card').classList.toggle('hidden', items.length === 0);
+  } catch { /* alerts are secondary */ }
+}
+</script>
+</body>
+</html>

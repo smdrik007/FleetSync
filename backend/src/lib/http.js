@@ -23,4 +23,11 @@ const isUuid = (v) => typeof v === 'string' && UUID_RE.test(v);
 /** Wrap an async route handler so rejections reach the error middleware. */
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
-module.exports = { bad, assertEnum, isUuid, wrap };
+const MIN_PASSWORD = 8;
+function checkPassword(password) {
+  if (typeof password !== 'string' || password.length < MIN_PASSWORD) {
+    throw bad(422, 'WEAK_PASSWORD', `password must be at least ${MIN_PASSWORD} characters.`);
+  }
+}
+
+module.exports = { bad, assertEnum, isUuid, wrap, checkPassword };

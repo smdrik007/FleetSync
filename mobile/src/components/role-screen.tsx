@@ -19,6 +19,11 @@ export function RoleScreen({ title, children, signOutDisabled }: { title: string
       <Text accessibilityRole="header" style={[styles.title, { color: t.text }]}>{title}</Text>
       <Text style={{ color: t.muted, fontSize: 15 }}>{user?.name}</Text>
       <View style={styles.body}>{children}</View>
+      {user?.role !== 'AUTHORITY' ? (
+        <View style={{ marginBottom: 12 }}>
+          <Button label="Contact us" variant="secondary" onPress={() => router.push('/contact')} />
+        </View>
+      ) : null}
       <Button label="Sign out" variant="secondary" onPress={signOut} disabled={signOutDisabled} />
       <View style={{ marginTop: 12 }}>
         <ServerAddress onChanged={() => router.replace('/')} />

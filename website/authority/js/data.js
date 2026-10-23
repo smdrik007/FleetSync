@@ -31,8 +31,10 @@ export const Lists = {
   devices:   () => cached('devices',   get('/fleet/devices')),
   users:     () => cached('users',     get('/fleet/users')),
   roles:     () => cached('roles',     get('/fleet/roles')),
-  permissions: () => cached('permissions', get('/fleet/permissions'), 60000),
 };
+
+/** What this institution tracks (vehicle | people | things). Set once by main.js before any screen renders. */
+export const Tenant = { trackingType: 'vehicle', isFleet: () => Tenant.trackingType === 'vehicle' };
 
 export const VEHICLE_STATUSES = ['idle', 'on_trip', 'maintenance', 'offline', 'retired'];
 export const DEVICE_STATUSES = ['active', 'inactive', 'faulty', 'retired'];

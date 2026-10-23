@@ -13,6 +13,8 @@ const prisma = require('../db/client');
 const { authenticate } = require('../middleware/auth');
 const { emitVehicleEvent, emitLocationUpdate } = require('../ws/server');
 const { stopsByRoute } = require('../lib/routeStops');
+const { tripDistanceKm } = require('../lib/tripDistance');
+const { recordPositions } = require('../lib/positions');
 
 const DRV = authenticate('DRIVER');
 
@@ -144,11 +146,12 @@ router.post('/trips/:tripId/end', DRV, async (req, res, next) => {
 
     const now = new Date();
     const durationMinutes = Math.round((now - trip.startedAt) / 60000);
+    const distanceKm = await tripDistanceKm(trip.id, institutionId); // the app uploads its queue before /end
 
     const [updatedTrip] = await prisma.$transaction([
       prisma.trip.update({
         where: { id: trip.id },
-        data:  { status: 'completed', endedAt: now },
+        data:  { status: 'completed', endedAt: now, distanceKm },
         select: { id: true, vehicleId: true, startedAt: true, endedAt: true, status: true },
       }),
       prisma.vehicle.update({
@@ -175,7 +178,7 @@ router.post('/trips/:tripId/end', DRV, async (req, res, next) => {
 
     res.json({
       success: true,
-      data: { id: trip.id, tripId: trip.id, vehicleId: updatedTrip.vehicleId, startedAt: updatedTrip.startedAt, endedAt: updatedTrip.endedAt, status: updatedTrip.status, durationMinutes },
+      data: { id: trip.id, tripId: trip.id, vehicleId: updatedTrip.vehicleId, startedAt: updatedTrip.startedAt, endedAt: updatedTrip.endedAt, status: updatedTrip.status, durationMinutes, distanceKm },
     });
   } catch (err) { next(err); }
 });
@@ -212,59 +215,19 @@ router.post('/trips/:tripId/location', DRV, async (req, res, next) => {
       return res.status(403).json({ success: false, error: { code: 'TRIP_NOT_ACTIVE', message: 'GPS tracking is only active during an in-progress trip.' } });
     }
 
-    // Persist last known position (PostGIS geography — stored via raw SQL)
-    // We store the position using ST_MakePoint and upsert via $executeRaw
-    const pgTimestamp = new Date(timestamp).toISOString();
-    await prisma.$transaction(async (tx) => {
-      // Upsert vehicle_latest_position with PostGIS geography
-      await tx.$executeRaw`
-        INSERT INTO vehicle_latest_position
-          (vehicle_id, institution_id, device_id, trip_id, location, speed, heading, recorded_at, updated_at)
-        SELECT
-          ${trip.vehicleId}::uuid,
-          ${institutionId}::uuid,
-          d.id,
-          ${trip.id}::uuid,
-          ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326),
-          ${speed ?? null},
-          ${heading ?? null},
-          ${pgTimestamp}::timestamptz,
-          now()
-        FROM devices d
-        WHERE d.vehicle_id = ${trip.vehicleId}::uuid
-        LIMIT 1
-        ON CONFLICT (vehicle_id) DO UPDATE SET
-          location    = ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326),
-          speed       = ${speed ?? null},
-          heading     = ${heading ?? null},
-          trip_id     = ${trip.id}::uuid,
-          recorded_at = ${pgTimestamp}::timestamptz,
-          updated_at  = now()
-        WHERE vehicle_latest_position.recorded_at < ${pgTimestamp}::timestamptz
-      `;
-      // Insert GPS log with PostGIS geography
-      await tx.$executeRaw`
-        INSERT INTO gps_logs
-          (recorded_at, institution_id, vehicle_id, device_id, trip_id, location, accuracy, speed, heading, ignition_on, received_at)
-        SELECT
-          ${pgTimestamp}::timestamptz,
-          ${institutionId}::uuid,
-          ${trip.vehicleId}::uuid,
-          d.id,
-          ${trip.id}::uuid,
-          ST_SetSRID(ST_MakePoint(${longitude}, ${latitude}), 4326),
-          ${accuracy ?? null},
-          ${speed ?? null},
-          ${heading ?? null},
-          true,
-          now()
-        FROM devices d
-        WHERE d.vehicle_id = ${trip.vehicleId}::uuid
-        LIMIT 1
-      `;
-      // The tracker just reported in: this is what the dashboard's "devices online" and each device's "last seen" read.
-      await tx.$executeRaw`UPDATE devices SET last_seen_at = now() WHERE vehicle_id = ${trip.vehicleId}::uuid AND institution_id = ${institutionId}::uuid`;
+    // Start Trip guarantees a device (the phone's own, or an installed tracker); the vehicle's first one stores the point.
+    const device = await prisma.device.findFirst({
+      where: { vehicleId: trip.vehicleId, institutionId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, institutionId: true, vehicleId: true },
     });
+    if (!device) return res.status(409).json({ success: false, error: { code: 'NO_DEVICE', message: 'This vehicle has no tracking device.' } });
+
+    // Phone speed and heading are stored as the OS reports them. shortcut: phone speed is m/s while other devices store km/h, convert when the UIs are unified.
+    await recordPositions(device, trip.id, [{
+      ts: new Date(timestamp), lat: latitude, lng: longitude, speed: speed ?? null, heading: heading ?? null,
+      accuracy: accuracy ?? null, ignition: true, battery: null, attrs: null,
+    }]);
 
     // Broadcast to vehicle room and institution (FR-PAS-02)
     emitLocationUpdate({

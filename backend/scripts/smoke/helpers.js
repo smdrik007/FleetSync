@@ -62,4 +62,25 @@ async function ensureEmptyTenant() {
   return login(EMPTY_TENANT.email, inst.id);
 }
 
-module.exports = { API_BASE, WS_URL, api, login, ensureEmptyTenant };
+/**
+ * Idempotently creates a tracking-type 'people' institution (AUTHORITY and GUARDIAN roles, one authority user)
+ * and returns a login session for it. `key` is 'a' or 'b' so tests can have two separate people tenants.
+ */
+async function ensurePeopleTenant(key = 'a') {
+  const prisma = require('../../src/db/client');
+  const id = `00000000-0000-4000-a000-0000000000${key === 'a' ? '91' : '92'}`;
+  const email = `authority@people-${key}.test`;
+  const inst = await prisma.institution.upsert({
+    where: { slug: `people-test-${key}` }, update: { trackingType: 'people' },
+    create: { id, name: `People Test ${key.toUpperCase()}`, slug: `people-test-${key}`, trackingType: 'people' },
+  });
+  const authority = await prisma.role.upsert({ where: { uq_roles_name: { institutionId: inst.id, name: 'AUTHORITY' } }, update: {}, create: { institutionId: inst.id, name: 'AUTHORITY', isSystem: true } });
+  await prisma.role.upsert({ where: { uq_roles_name: { institutionId: inst.id, name: 'GUARDIAN' } }, update: {}, create: { institutionId: inst.id, name: 'GUARDIAN', isSystem: true } });
+  await prisma.user.upsert({
+    where: { email }, update: {},
+    create: { institutionId: inst.id, name: `Authority ${key}`, email, passwordHash: bcrypt.hashSync('demo1234', 10), userRoles: { create: [{ roleId: authority.id, institutionId: inst.id }] } },
+  });
+  return login(email, inst.id);
+}
+
+module.exports = { API_BASE, WS_URL, api, login, ensureEmptyTenant, ensurePeopleTenant };

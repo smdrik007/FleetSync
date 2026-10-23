@@ -1,73 +1,124 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FleetSync | Every vehicle, live</title>
-  <meta name="description" content="FleetSync is a multi-tenant vehicle management and live tracking platform for institutions, drivers and passengers." />
+  <title>FleetSync | Live tracking for vehicles, people and things</title>
+  <meta name="description" content="FleetSync turns drivers' phones into a live map for your school, company or care home. Track vehicles, people and equipment, with a 14-day free trial." />
+  <script>document.documentElement.classList.add('js')</script>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="landing.css" />
 </head>
 <body class="lp">
 
-<header class="lp-nav" id="nav">
-  <a class="lp-logo" href="/" aria-label="FleetSync home"><span class="lp-mark" aria-hidden="true">FS</span><span>Fleet<b>Sync</b></span></a>
-  <nav aria-label="Sections">
-    <a href="#live">Live map</a>
-    <a href="#roles">Who it is for</a>
-    <a href="#features">Features</a>
-  </nav>
-  <div class="lp-nav-end">
-    <button class="lp-theme" id="theme-btn" type="button" aria-label="Toggle theme"></button>
-    <a class="lp-btn lp-btn-solid" href="/index.html">Sign in</a>
+<!-- one icon family for the whole page (Lucide-style strokes) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+  <symbol id="i-bus" viewBox="0 0 24 24"><path d="M8 6v6M15 6v6M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-box" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol>
+  <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="i-fuel" viewBox="0 0 24 24"><line x1="3" x2="15" y1="22" y2="22"/><line x1="4" x2="14" y1="9" y2="9"/><path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18"/><path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2 2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 12h16M4 6h16M4 18h16"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></symbol>
+</svg>
+
+<a class="sr-only" href="#top">Skip to content</a>
+
+<header class="lp-head">
+  <div class="lp-nav" id="nav">
+    <a class="lp-logo" href="/" aria-label="FleetSync home"><span class="lp-mark" aria-hidden="true">FS</span><span>Fleet<b>Sync</b></span></a>
+    <nav class="lp-links" aria-label="Sections">
+      <a href="#product">Product</a>
+      <a href="#roles">Roles</a>
+      <a href="#how">How it works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="lp-nav-end">
+      <a class="lp-btn lp-btn-quiet" href="index.html">Sign in</a>
+      <a class="lp-btn lp-btn-solid" href="signup.html">Get started</a>
+    </div>
+    <button class="lp-burger" id="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="sheet"><svg class="icon"><use href="#i-menu"/></svg></button>
+  </div>
+  <div class="lp-sheet" id="sheet" hidden>
+    <a href="#product">Product</a><a href="#roles">Roles</a><a href="#how">How it works</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a>
+    <div class="lp-sheet-cta"><a class="lp-btn lp-btn-line" href="index.html">Sign in</a><a class="lp-btn lp-btn-solid" href="signup.html">Create account</a></div>
   </div>
 </header>
 
-<main>
-  <!-- 1 · Hero: four planes moving at different rates -->
-  <section class="hero" data-sc="hero" aria-labelledby="h-hero">
-    <div class="plane plane-wash" aria-hidden="true"></div>
-    <svg class="plane plane-routes" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <path d="M-40 560 C 200 560 240 330 460 350 S 760 560 940 300 S 1180 120 1260 100" />
-      <path d="M-40 220 C 160 260 300 120 520 160 S 820 260 1000 480 S 1180 600 1260 640" />
-      <circle cx="460" cy="350" r="7" /><circle cx="940" cy="300" r="7" /><circle cx="520" cy="160" r="7" /><circle cx="1000" cy="480" r="7" />
+<main id="top">
+  <!-- 1 · Hero: one promise, one picture (a night map with a live route) -->
+  <section class="hero" aria-labelledby="h-hero">
+    <svg class="hero-map" viewBox="0 0 1200 760" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <rect class="m-bg" width="1200" height="760" />
+      <path class="m-water" d="M-20 540 C 200 490 330 620 560 560 S 900 400 1220 450" />
+      <ellipse class="m-park" cx="930" cy="610" rx="120" ry="64" /><ellipse class="m-park" cx="250" cy="170" rx="90" ry="50" />
+      <path class="m-st" d="M0 90H1200M0 170H1200M0 255H1200M0 340H1200M0 430H1200M0 520H1200M0 610H1200M0 690H1200M80 0V760M190 0V760M330 0V760M420 0V760M560 0V760M700 0V760M790 0V760M930 0V760M1050 0V760M1140 0V760M0 600L420 0M300 760L1200 160M700 760L1200 420" />
+      <path class="m-st m-main" d="M0 255H1200M560 0V760M0 600L420 0" />
+      <text class="m-lbl" x="640" y="132">NORTH CAMPUS</text>
+      <text class="m-lbl" x="800" y="590">RIVERSIDE</text>
+      <text class="m-lbl" x="750" y="226" text-anchor="end">CITY CENTRE</text>
+      <path class="m-route" pathLength="1" d="M440 620 C 560 620 560 470 700 450 S 880 470 940 330 S 1010 190 1090 160" />
+      <g class="m-ring"><circle cx="440" cy="620" r="24" /><circle cx="440" cy="620" r="4" /></g>
+      <g class="m-ring"><circle cx="1090" cy="160" r="24" /><circle cx="1090" cy="160" r="4" /></g>
+      <g transform="translate(700 450)">
+        <circle class="m-pulse" r="10" />
+        <path class="m-pin" d="M0 0C-12-18-20-28-20-38a20 20 0 1 1 40 0C20-28 12-18 0 0Z" /><circle class="m-pin-hole" cy="-38" r="7" />
+      </g>
+      <g class="m-tag" transform="translate(738 372)"><rect width="196" height="50" rx="14" /><text x="16" y="22" class="t1">Bus 12</text><text x="16" y="40" class="t2">Arriving at Library</text></g>
     </svg>
-    <div class="plane plane-chips" aria-hidden="true">
-      <div class="chip c1"><i class="dot"></i>Bus 12<small>On route</small></div>
-      <div class="chip c2"><i class="dot amber"></i>Van 04<small>At stop</small></div>
-      <div class="chip c3"><i class="dot"></i>Route A<small>4 stops</small></div>
-    </div>
     <div class="hero-copy">
-      <p class="lp-eyebrow">Fleet management and live tracking</p>
-      <h1 id="h-hero">Every vehicle,<br /><em>exactly where it is.</em></h1>
-      <p class="lead">One calm place for your institution to track vehicles, assign drivers and tell passengers when the ride arrives.</p>
+      <p class="lbl">Fleet and people tracking for institutions</p>
+      <h1 id="h-hero">Passengers stop asking <em>where the&nbsp;bus&nbsp;is.</em></h1>
+      <p class="lead">FleetSync turns each driver's phone into a live map for your school, company or care home. No hardware to install, and tracking ends the moment a trip does.</p>
       <div class="hero-cta">
-        <a class="lp-btn lp-btn-solid lp-btn-lg" href="/index.html">Sign in</a>
-        <a class="lp-btn lp-btn-ghost lp-btn-lg" href="#live">See it move</a>
+        <a class="lp-btn lp-btn-solid lp-btn-lg" href="signup.html">Start 14-day free trial</a>
+        <a class="lp-btn lp-btn-line lp-btn-lg" href="index.html">Sign in</a>
       </div>
+      <p class="hero-note">No card needed.</p>
     </div>
   </section>
 
-  <!-- 2 · Tension: pinned copy that fills in word by word -->
+  <!-- 2 · Who it is for (plain list, nothing invented) -->
+  <section class="madefor" aria-label="Made for">
+    <p class="lbl">Made for</p>
+    <ul>
+      <li>School transport</li><li>University shuttles</li><li>Corporate fleets</li><li>Care homes</li><li>Logistics crews</li><li>Equipment yards</li>
+    </ul>
+  </section>
+
+  <!-- 3 · Problem: pinned copy that fills in word by word -->
   <section class="pin tension" data-sc="tension" aria-label="The problem">
     <div class="pin-stage">
       <p class="kinetic" data-kinetic>Late buses. Drivers nobody can reach. Passengers standing at a stop, guessing. A fleet you cannot see is a fleet you cannot trust.</p>
     </div>
   </section>
 
-  <!-- 3 · Peak: scroll drives the vehicle along the route -->
+  <!-- 4 · Peak: scroll drives the vehicle along the route -->
   <section class="pin live" id="live" data-sc="live" aria-labelledby="h-live">
     <div class="pin-stage live-stage">
       <div class="live-copy">
-        <p class="lp-eyebrow">Live tracking</p>
-        <h2 id="h-live">Scroll, and watch<br />the route come alive.</h2>
+        <h2 id="h-live">Every stop, as it happens.</h2>
+        <p>Positions reach the map over a live socket, so the dashboard moves when the vehicle does. Keep scrolling to drive the bus.</p>
         <p class="live-status" aria-live="off"><span id="live-stop">Main Gate</span><small id="live-count">Stop 1 of 5</small></p>
       </div>
       <svg class="live-map" id="live-map" viewBox="0 0 800 500" role="img" aria-label="A vehicle travelling along a route through five stops">
-        <defs>
-          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="var(--border)" stroke-width="1" /></pattern>
-        </defs>
-        <rect width="800" height="500" fill="url(#grid)" />
+        <rect class="m-bg" width="800" height="500" />
+        <path class="m-st" d="M0 70H800M0 160H800M0 250H800M0 340H800M0 430H800M70 0V500M170 0V500M290 0V500M410 0V500M530 0V500M650 0V500M740 0V500" />
         <path id="route-base" d="M60 420 C 200 420 180 250 330 260 S 520 380 600 220 S 720 90 750 70" />
         <path id="route-prog" d="M60 420 C 200 420 180 250 330 260 S 520 380 600 220 S 720 90 750 70" />
         <g id="stops"></g>
@@ -76,51 +127,256 @@
     </div>
   </section>
 
-  <!-- 4 · Range: horizontal pan across the three roles -->
-  <section class="pin roles" id="roles" data-sc="roles" aria-labelledby="h-roles">
-    <div class="pin-stage roles-stage">
-      <h2 id="h-roles">One platform,<br />three points of view.</h2>
-      <div class="track" id="track">
-        <article class="role r1">
-          <h3>Authority</h3>
-          <p>Vehicles, drivers, routes, trips, maintenance and fuel for the whole institution, scoped so no one else's data ever mixes in.</p>
-        </article>
-        <article class="role r2">
-          <h3>Driver</h3>
-          <p>A single big button to start a trip. Position streams out while the wheel stays in your hands.</p>
-        </article>
-        <article class="role r3">
-          <h3>Passenger</h3>
-          <p>See which vehicle is closest and how long until it arrives. No more guessing at the stop.</p>
-        </article>
+  <!-- 5 · What you can track -->
+  <section class="sec" id="product" aria-labelledby="h-track">
+    <header class="sec-head">
+      <h2 id="h-track">Track what you are responsible for.</h2>
+      <p>Pick one when you sign up. Your console only shows the screens that kind needs, and you can change it later in Institution settings.</p>
+    </header>
+    <ol class="kinds">
+      <li class="kind" data-reveal>
+        <span class="kind-n">01</span>
+        <div class="kind-body">
+          <h3><svg class="icon"><use href="#i-bus"/></svg>Vehicles</h3>
+          <p class="kind-sub">Buses, vans and trucks.</p>
+          <p>Register vehicles and drivers, build routes from ordered stops and watch every trip on one live map. Maintenance, fuel and cost sit beside the vehicle they belong to.</p>
+          <ul class="tags"><li>Live map</li><li>Routes and stops</li><li>Trip replay</li><li>Maintenance</li><li>Fuel and costs</li></ul>
+        </div>
+        <svg class="kind-art" viewBox="0 0 320 150" aria-hidden="true">
+          <path class="k-line" d="M20 110 C 80 110 90 50 150 60 S 240 110 300 40" />
+          <circle class="k-stop" cx="20" cy="110" r="6" /><circle class="k-stop" cx="150" cy="60" r="6" /><circle class="k-stop" cx="300" cy="40" r="6" />
+          <g transform="translate(205 92)"><circle class="k-pulse" r="12" /><circle class="k-dot" r="6" /></g>
+        </svg>
+      </li>
+      <li class="kind" data-reveal>
+        <span class="kind-n">02</span>
+        <div class="kind-body">
+          <h3><svg class="icon"><use href="#i-user"/></svg>People</h3>
+          <p class="kind-sub">Children, elders and staff.</p>
+          <p>Give each person a tracker, link the guardians who may follow them and draw safe zones. A guardian is alerted when someone leaves one.</p>
+          <ul class="tags"><li>Safe zones</li><li>Guardians</li><li>Alerts</li><li>One map of everyone</li></ul>
+        </div>
+        <svg class="kind-art" viewBox="0 0 320 150" aria-hidden="true">
+          <circle class="k-zone" cx="160" cy="75" r="56" />
+          <path class="k-trail" d="M60 120 C 90 112 110 96 128 88 S 150 78 158 76" />
+          <g transform="translate(160 75)"><circle class="k-pulse" r="14" /><circle class="k-dot" r="6" /></g>
+          <circle class="k-out" cx="268" cy="38" r="5" />
+        </svg>
+      </li>
+      <li class="kind" data-reveal>
+        <span class="kind-n">03</span>
+        <div class="kind-body">
+          <h3><svg class="icon"><use href="#i-box"/></svg>Things</h3>
+          <p class="kind-sub">Equipment and assets.</p>
+          <p>Attach a tracker to equipment and see where it is and where it has been. Same devices, same map, same alerts as people.</p>
+          <ul class="tags"><li>Devices</li><li>Live map</li><li>Alerts</li><li>Location trail</li></ul>
+        </div>
+        <svg class="kind-art" viewBox="0 0 320 150" aria-hidden="true">
+          <path class="k-trail" d="M30 40 L96 70 L150 62 L214 104 L262 92" />
+          <circle class="k-faint" cx="30" cy="40" r="4" /><circle class="k-faint" cx="96" cy="70" r="4" /><circle class="k-faint" cx="150" cy="62" r="4" /><circle class="k-faint" cx="214" cy="104" r="4" />
+          <g transform="translate(262 92)"><circle class="k-pulse" r="14" /><circle class="k-dot" r="6" /></g>
+        </svg>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 6 · How it works -->
+  <section class="sec" id="how" aria-labelledby="h-how">
+    <header class="sec-head"><h2 id="h-how">Live in three steps.</h2></header>
+    <ol class="steps">
+      <li class="step" data-reveal>
+        <span class="step-n">01</span>
+        <h3>Create your account</h3>
+        <p>Choose what you track and name your organisation. Your 14-day trial starts straight away.</p>
+        <div class="frag frag-pick" aria-hidden="true"><span class="on"><svg class="icon"><use href="#i-bus"/></svg>Vehicle</span><span><svg class="icon"><use href="#i-user"/></svg>People</span><span><svg class="icon"><use href="#i-box"/></svg>Things</span></div>
+      </li>
+      <li class="step" data-reveal>
+        <span class="step-n">02</span>
+        <h3>Add what you track</h3>
+        <p>Add vehicles, drivers and routes, or people and their trackers. Create sign-ins for drivers, passengers and guardians.</p>
+        <div class="frag frag-rows" aria-hidden="true"><p><i class="d g"></i>Bus 12<small>On trip</small></p><p><i class="d b"></i>Van 04<small>Idle</small></p><p><i class="d a"></i>Bus 07<small>Maintenance</small></p></div>
+      </li>
+      <li class="step" data-reveal>
+        <span class="step-n">03</span>
+        <h3>Go live</h3>
+        <p>A driver taps Start trip and the map moves. Passengers see which vehicle is closest and how long until it arrives.</p>
+        <div class="frag frag-go" aria-hidden="true"><span class="go-btn">Start trip</span><span class="go-note"><i class="d g"></i>GPS is on</span></div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- 7 · Roles -->
+  <section class="sec" id="roles" aria-labelledby="h-roles">
+    <header class="sec-head"><h2 id="h-roles">One platform, four points of view.</h2><p>Everyone signs in to their own institution and lands on the screen made for them.</p></header>
+    <div class="tabs" role="tablist" aria-label="Roles">
+      <button class="tab" role="tab" id="tab-authority" aria-selected="true" aria-controls="panel-authority" type="button">Authority</button>
+      <button class="tab" role="tab" id="tab-driver" aria-selected="false" aria-controls="panel-driver" tabindex="-1" type="button">Driver</button>
+      <button class="tab" role="tab" id="tab-passenger" aria-selected="false" aria-controls="panel-passenger" tabindex="-1" type="button">Passenger</button>
+      <button class="tab" role="tab" id="tab-guardian" aria-selected="false" aria-controls="panel-guardian" tabindex="-1" type="button">Guardian</button>
+    </div>
+
+    <div class="panel" role="tabpanel" id="panel-authority" aria-labelledby="tab-authority">
+      <div class="panel-copy">
+        <h3>The control room.</h3>
+        <p>Vehicles, drivers, routes, trips, maintenance and fuel for the whole institution, scoped so nobody else's data ever mixes in.</p>
+        <ul class="ticks"><li>A live map of every vehicle or person</li><li>Ctrl K to jump to any screen, vehicle or driver</li><li>Costs, notifications and users in one place</li><li>Subscription and institution settings</li></ul>
+      </div>
+      <div class="panel-art frag-table" aria-hidden="true">
+        <p class="lbl">Fleet</p>
+        <p><span><b>Bus 12</b><small>Rahim</small></span><em class="bd g">On trip</em></p>
+        <p><span><b>Van 04</b><small>Karim</small></span><em class="bd b">Idle</em></p>
+        <p><span><b>Bus 07</b><small>Unassigned</small></span><em class="bd a">Maintenance</em></p>
+        <p><span><b>Truck 02</b><small>Sumon</small></span><em class="bd g">On trip</em></p>
+      </div>
+    </div>
+
+    <div class="panel" role="tabpanel" id="panel-driver" aria-labelledby="tab-driver" hidden>
+      <div class="panel-copy">
+        <h3>One big button.</h3>
+        <p>Start a trip and position streams out while the wheel stays in your hands. End it and tracking stops. Nothing is recorded off duty.</p>
+        <ul class="ticks"><li>Start and end a trip with one tap</li><li>A clear on or off status at all times</li><li>GPS only while a trip is running</li><li>Runs in the phone's browser</li></ul>
+      </div>
+      <div class="panel-art frag-driver" aria-hidden="true">
+        <p class="lbl">Today</p><p class="fd-route">Main Gate to Terminal</p>
+        <span class="go-btn go-end">End trip</span>
+        <p class="go-note"><i class="d g"></i>Sharing your position</p>
+      </div>
+    </div>
+
+    <div class="panel" role="tabpanel" id="panel-passenger" aria-labelledby="tab-passenger" hidden>
+      <div class="panel-copy">
+        <h3>No more guessing.</h3>
+        <p>See which vehicle is closest and how long until it arrives. If a phone loses signal you see an amber Last seen badge, not a dot pretending to be live.</p>
+        <ul class="ticks"><li>Pick a vehicle or route</li><li>Stop-by-stop progress</li><li>Last seen badge with the exact time</li><li>One tap to call the driver</li></ul>
+      </div>
+      <div class="panel-art frag-stepper" aria-hidden="true">
+        <p class="lbl">Bus 12</p>
+        <ol><li class="past">Main Gate</li><li class="past">Library</li><li class="now">Hostel</li><li>Science Block</li><li>Terminal</li></ol>
+      </div>
+    </div>
+
+    <div class="panel" role="tabpanel" id="panel-guardian" aria-labelledby="tab-guardian" hidden>
+      <div class="panel-copy">
+        <h3>Calm, not constant.</h3>
+        <p>Follow the people you are linked to, see where they are and get an alert when one leaves a safe zone. You see them, and nobody else.</p>
+        <ul class="ticks"><li>Only the people you are linked to</li><li>Safe zones with alerts</li><li>A recent trail on the map</li><li>Notifications when something changes</li></ul>
+      </div>
+      <div class="panel-art frag-guard" aria-hidden="true">
+        <p class="lbl">Following</p>
+        <p class="fg-name">Aisha Rahman</p>
+        <p class="go-note"><i class="d g"></i>Inside safe zone: Care home</p>
+        <svg viewBox="0 0 240 90"><circle class="k-zone" cx="120" cy="45" r="36" /><g transform="translate(120 45)"><circle class="k-pulse" r="12" /><circle class="k-dot" r="5" /></g></svg>
       </div>
     </div>
   </section>
 
-  <!-- 5 · Substance: wipe-in feature grid -->
-  <section class="features" id="features" aria-labelledby="h-feat">
-    <h2 id="h-feat">Built for the whole day.</h2>
-    <ul class="feat-grid">
-      <li class="wipe"><h3>Sub-second positions</h3><p>GPS updates reach the map over a live socket, not a refresh button.</p></li>
-      <li class="wipe"><h3>Isolated by institution</h3><p>Every record is scoped to your organisation from the first request.</p></li>
-      <li class="wipe"><h3>Trip replay</h3><p>Step back through any trip, stop by stop, when something needs explaining.</p></li>
-      <li class="wipe"><h3>Maintenance and fuel</h3><p>Service history and fuel logs sit next to the vehicle they belong to.</p></li>
-      <li class="wipe"><h3>Roles and permissions</h3><p>Give each person exactly the screens their job needs.</p></li>
-      <li class="wipe"><h3>Alerts that matter</h3><p>Notifications for the events that change a plan, and quiet for the rest.</p></li>
+  <!-- 8 · Features -->
+  <section class="sec" id="features" aria-labelledby="h-feat">
+    <header class="sec-head"><h2 id="h-feat">Built for the whole day.</h2></header>
+    <ul class="bento">
+      <li class="bt bt-a" data-reveal>
+        <svg class="bt-art" viewBox="0 0 400 150" aria-hidden="true"><path class="k-street" d="M0 40H400M0 100H400M70 0V150M170 0V150M280 0V150" /><path class="k-line" d="M20 120 C 100 120 120 50 200 60 S 320 100 380 30" /><g transform="translate(200 60)"><circle class="k-pulse" r="13" /><circle class="k-dot" r="6" /></g><g transform="translate(318 84)"><circle class="k-dot k-dot-b" r="5" /></g></svg>
+        <h3>Sub-second positions</h3><p>GPS updates reach the map over a live socket, not a refresh button.</p>
+      </li>
+      <li class="bt bt-b" data-reveal>
+        <svg class="bt-art" viewBox="0 0 400 150" aria-hidden="true"><path class="k-rail" d="M24 75H376" /><path class="k-railon" d="M24 75H238" /><circle class="k-faint" cx="24" cy="75" r="6" /><circle class="k-faint" cx="110" cy="75" r="6" /><circle class="k-faint" cx="238" cy="75" r="6" /><circle class="k-stop" cx="320" cy="75" r="6" /><circle class="k-stop" cx="376" cy="75" r="6" /><g transform="translate(238 75)"><circle class="k-pulse" r="14" /><circle class="k-dot" r="7" /></g></svg>
+        <h3>Trip replay</h3><p>Step back through any trip, stop by stop, when something needs explaining.</p>
+      </li>
+      <li class="bt bt-c" data-reveal>
+        <svg class="bt-art" viewBox="0 0 400 150" aria-hidden="true"><rect class="k-bar" x="50" y="70" width="46" height="60" rx="8" /><rect class="k-bar" x="130" y="40" width="46" height="90" rx="8" /><rect class="k-bar k-bar-on" x="210" y="56" width="46" height="74" rx="8" /><rect class="k-bar" x="290" y="24" width="46" height="106" rx="8" /></svg>
+        <h3>Cost per trip</h3><p>Distance, estimated fuel and spend per trip, rolled up for the whole institution.</p>
+      </li>
+      <li class="bt bt-d" data-reveal>
+        <svg class="bt-art" viewBox="0 0 400 150" aria-hidden="true"><circle class="k-zone" cx="200" cy="75" r="52" /><g transform="translate(200 75)"><circle class="k-dot" r="6" /></g><g transform="translate(300 34)"><circle class="k-out" r="6" /></g><path class="k-trail" d="M200 75 L296 38" /></svg>
+        <h3>Safe zones and alerts</h3><p>Notifications for the events that change a plan, and quiet for the rest.</p>
+      </li>
+      <li class="bt bt-e" data-reveal>
+        <ul class="bt-list" aria-hidden="true"><li><svg class="icon"><use href="#i-wrench"/></svg>Service due<small>Bus 07</small></li><li><svg class="icon"><use href="#i-fuel"/></svg>Fuel logged<small>Van 04</small></li><li><svg class="icon"><use href="#i-bell"/></svg>License expiring<small>Driver</small></li></ul>
+        <h3>Maintenance and fuel</h3><p>Service history and fuel logs sit next to the vehicle they belong to.</p>
+      </li>
+      <li class="bt bt-f" data-reveal>
+        <svg class="bt-art" viewBox="0 0 400 150" aria-hidden="true"><g class="k-ico"><rect x="36" y="38" width="40" height="70" rx="8" /><path d="M56 98h.01" /></g><path class="k-trail" d="M92 73 H168" /><g class="k-ico"><rect x="176" y="43" width="60" height="60" rx="8" /><rect x="192" y="59" width="28" height="28" rx="3" /></g><path class="k-trail" d="M252 73 H306" /><g transform="translate(330 73)"><circle class="k-pulse" r="14" /><circle class="k-dot" r="7" /></g></svg>
+        <h3>Phone GPS to start, trackers when you need them</h3><p>Drivers need nothing but a phone. Register hardware devices for people and equipment.</p>
+      </li>
+      <li class="bt bt-g" data-reveal>
+        <svg class="bt-art" viewBox="0 0 400 150" aria-hidden="true"><rect class="k-box" x="24" y="30" width="104" height="90" rx="14" /><rect class="k-box k-box-on" x="148" y="30" width="104" height="90" rx="14" /><rect class="k-box" x="272" y="30" width="104" height="90" rx="14" /><g class="k-ico"><rect x="190" y="70" width="20" height="16" rx="3" /><path d="M194 70v-5a6 6 0 0 1 12 0v5" /></g></svg>
+        <h3>Isolated by institution</h3><p>Every record is scoped to your organisation from the first request.</p>
+      </li>
     </ul>
   </section>
 
-  <!-- 6 · Commitment -->
+  <!-- 9 · Limits -->
+  <section class="sec limits" aria-labelledby="h-limits">
+    <header class="sec-head"><h2 id="h-limits">Tracking with limits.</h2><p>Knowing where things are should not mean watching people. These are rules in the product, not promises on a slide.</p></header>
+    <ul class="spec">
+      <li data-reveal><svg class="icon"><use href="#i-pin"/></svg><h3>Trip-bound GPS</h3><p>A driver is located only while a trip is running. Ending the trip ends tracking.</p></li>
+      <li data-reveal><svg class="icon"><use href="#i-lock"/></svg><h3>One institution, one boundary</h3><p>Every record belongs to your organisation. No other tenant's data can appear in your screens.</p></li>
+      <li data-reveal><svg class="icon"><use href="#i-shield"/></svg><h3>Roles decide access</h3><p>Authority, driver, passenger and guardian each see only the screens made for them.</p></li>
+      <li data-reveal><svg class="icon"><use href="#i-user"/></svg><h3>Guardians see their people</h3><p>A guardian can follow exactly the people they are linked to, and nobody else.</p></li>
+    </ul>
+  </section>
+
+  <!-- 10 · Pricing. shortcut: placeholder prices and limits, confirm before launch; paid plans are switched on by hand until billing exists. -->
+  <section class="sec" id="pricing" aria-labelledby="h-price">
+    <header class="sec-head"><h2 id="h-price">Start free. Pay for what you track.</h2><p>Prices are per tracked vehicle, person or asset, per month, in Bangladeshi taka.</p></header>
+    <ul class="plans">
+      <li class="plan" data-reveal>
+        <h3>Trial</h3>
+        <p class="price"><b>Free</b><small>for 14 days</small></p>
+        <p class="plan-for">Try everything with your own data.</p>
+        <ul class="ticks"><li>All screens for what you track</li><li>Drivers, passengers and guardians</li><li>No card needed</li></ul>
+        <a class="lp-btn lp-btn-line" href="signup.html">Start free trial</a>
+      </li>
+      <li class="plan plan-main" data-reveal>
+        <span class="plan-flag">Best for most</span>
+        <h3>Standard</h3>
+        <p class="price"><b>৳ 300</b><small>per item, per month</small></p>
+        <p class="plan-for">For one school, office or care home.</p>
+        <ul class="ticks"><li>Live map, routes and trip replay</li><li>Driver, passenger and guardian apps</li><li>Maintenance, fuel and costs</li><li>Safe zones and alerts</li></ul>
+        <a class="lp-btn lp-btn-solid" href="signup.html">Start free trial</a>
+      </li>
+      <li class="plan" data-reveal>
+        <h3>Institution</h3>
+        <p class="price"><b>Custom</b><small>volume pricing</small></p>
+        <p class="plan-for">For several sites or large fleets.</p>
+        <ul class="ticks"><li>Everything in Standard</li><li>Volume pricing for large fleets</li><li>Talk to us about hardware trackers</li></ul>
+        <a class="lp-btn lp-btn-line" href="signup.html">Start free trial</a>
+      </li>
+    </ul>
+    <p class="plan-note">Online billing is not switched on yet. When your trial ends, tell us the plan you want and our team activates it for you.</p>
+  </section>
+
+  <!-- 11 · FAQ -->
+  <section class="sec faq" id="faq" aria-labelledby="h-faq">
+    <header class="sec-head"><h2 id="h-faq">Questions people ask first.</h2></header>
+    <div class="qa">
+      <details name="faq" open><summary>Do I need to buy tracking hardware?<svg class="icon"><use href="#i-chev"/></svg></summary><p>No. A driver's phone sends its position through the browser while a trip is running. If you want dedicated trackers for people or equipment, you can register those devices in the console.</p></details>
+      <details name="faq"><summary>Can drivers be tracked when they are off duty?<svg class="icon"><use href="#i-chev"/></svg></summary><p>No. Position is only collected between Start trip and End trip, and the driver sees a clear status while it is on.</p></details>
+      <details name="faq"><summary>Who can see my data?<svg class="icon"><use href="#i-chev"/></svg></summary><p>Only people signed in to your institution. Every record is scoped to it, and each role sees only its own screens.</p></details>
+      <details name="faq"><summary>Can I track people or equipment, not just vehicles?<svg class="icon"><use href="#i-chev"/></svg></summary><p>Yes. Choose People or Things when you sign up and you get trackers, safe zones, guardians and alerts instead of the fleet screens.</p></details>
+      <details name="faq"><summary>Do passengers need an account?<svg class="icon"><use href="#i-chev"/></svg></summary><p>Yes. A passenger signs in to their institution to see live vehicles. You create those sign-ins from the Users screen.</p></details>
+      <details name="faq"><summary>What happens if a phone loses signal mid-trip?<svg class="icon"><use href="#i-chev"/></svg></summary><p>Passengers see an amber Last seen badge with the time of the last position, so a stale dot never passes for a live one.</p></details>
+      <details name="faq"><summary>What happens after the 14-day trial?<svg class="icon"><use href="#i-chev"/></svg></summary><p>Your account and data stay. Tell us which plan you want and our team activates it, because online billing is not switched on yet.</p></details>
+    </div>
+  </section>
+
+  <!-- 12 · Close -->
   <section class="close" aria-labelledby="h-close">
     <div class="close-card" id="close-card">
-      <h2 id="h-close">Ready to see your fleet?</h2>
-      <p>Pick your institution and sign in.</p>
-      <a class="lp-btn lp-btn-solid lp-btn-lg" href="/index.html">Sign in</a>
+      <h2 id="h-close">Open your first <em>live map.</em></h2>
+      <p>Create an account, add a vehicle and watch it move. 14 days free, no card needed.</p>
+      <div class="hero-cta"><a class="lp-btn lp-btn-solid lp-btn-lg" href="signup.html">Create account</a><a class="lp-btn lp-btn-line lp-btn-lg" href="index.html">Sign in</a></div>
     </div>
   </section>
 </main>
 
-<footer class="lp-foot">FleetSync · Vehicle management and live tracking</footer>
+<footer class="lp-foot">
+  <div class="foot-top">
+    <div><a class="lp-logo" href="/" aria-label="FleetSync home"><span class="lp-mark" aria-hidden="true">FS</span><span>Fleet<b>Sync</b></span></a><p>Vehicle, people and asset tracking for institutions.</p></div>
+    <nav aria-label="Footer"><a href="#product">Product</a><a href="#roles">Roles</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="index.html">Sign in</a><a href="signup.html">Create account</a></nav>
+  </div>
+  <div class="foot-end"><span>A course project from the Department of Computer Science and Engineering, Khulna University.</span><button class="lp-theme" id="theme-btn" type="button" aria-label="Switch theme"><svg class="icon"><use href="#i-sun" id="theme-use"/></svg><span id="theme-txt">Light theme</span></button></div>
+</footer>
 
 <script src="app.js"></script>
 <script src="landing.js"></script>

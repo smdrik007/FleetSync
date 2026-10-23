@@ -88,6 +88,29 @@ function emitLocationUpdate({ data, vehicleId, previousDriverId, institutionId }
 }
 
 /**
+ * Re-read which people a guardian may follow and move their open sockets to match, so a link the
+ * authority removes stops the live feed at once instead of at the next reconnect.
+ */
+async function syncGuardianRooms(userId, institutionId) {
+  const room = rooms.get(getRoomKey('user', userId));
+  if (!room || !room.size) return;
+  const rows = await prisma.guardianship.findMany({ where: { userId, institutionId }, select: { assetId: true } });
+  const keys = rows.map((r) => getRoomKey('asset', r.assetId));
+  room.forEach((ws) => {
+    ws._assetRooms?.forEach((k) => leaveRoom(k, ws));
+    ws._assetRooms = keys;
+    keys.forEach((k) => joinRoom(k, ws));
+  });
+}
+
+/** A tracked person moved: tell the tenant's authority and that person's guardians. */
+function emitAssetLocation({ data, assetId, institutionId }) {
+  const payload = { event: 'asset.location', data };
+  broadcast(getRoomKey('asset', assetId), payload);
+  broadcast(getRoomKey('authority', institutionId), payload);
+}
+
+/**
  * Push an event to every live socket of one user (any role) — e.g. 'notification.new'.
  */
 function emitToUser(userId, event, data) {
@@ -119,8 +142,20 @@ function initWebSocket(httpServer) {
     const { sub: userId, institutionId, role } = decoded;
 
     // ── Join institution room ────────────────────────────────────────
+    // Guardians only ever see the people linked to them, never the fleet's institution-wide events.
     const instRoom = getRoomKey('institution', institutionId);
-    joinRoom(instRoom, ws);
+    if (role !== 'GUARDIAN') joinRoom(instRoom, ws);
+    const authRoom = getRoomKey('authority', institutionId);
+    if (role === 'AUTHORITY') joinRoom(authRoom, ws);
+    if (role === 'GUARDIAN') {
+      prisma.guardianship.findMany({ where: { userId, institutionId }, select: { assetId: true } })
+        .then((rows) => {
+          if (ws.readyState !== WebSocket.OPEN) return;
+          ws._assetRooms = rows.map((r) => getRoomKey('asset', r.assetId));
+          ws._assetRooms.forEach((k) => joinRoom(k, ws));
+        })
+        .catch((err) => console.error('[WS guardian rooms]', err.message));
+    }
 
     // ── Join personal user room (notifications) ───────────────────────
     const userRoom = getRoomKey('user', userId);
@@ -164,6 +199,8 @@ function initWebSocket(httpServer) {
     // ── Cleanup on disconnect ────────────────────────────────────────
     ws.on('close', () => {
       leaveRoom(instRoom, ws);
+      leaveRoom(authRoom, ws);
+      ws._assetRooms?.forEach((k) => leaveRoom(k, ws));
       leaveRoom(userRoom, ws);
       if (role === 'DRIVER') leaveRoom(getRoomKey('driver', userId), ws);
       ws._vehicleRooms?.forEach((k) => leaveRoom(k, ws));
@@ -176,4 +213,4 @@ function initWebSocket(httpServer) {
   return wss;
 }
 
-module.exports = { initWebSocket, emitVehicleEvent, emitLocationUpdate, emitToUser, getRoomKey, broadcast };
+module.exports = { initWebSocket, emitVehicleEvent, emitLocationUpdate, emitAssetLocation, syncGuardianRooms, emitToUser, getRoomKey, broadcast };

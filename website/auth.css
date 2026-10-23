@@ -1,0 +1,66 @@
+/* Sign in and sign up: one rounded split card. Left is always a night map (like the screenshots), right is the form in the current theme. */
+body { display: flex; align-items: center; justify-content: center; min-height: 100dvh; padding: 24px; background: var(--bg); }
+.theme-fab { position: fixed; top: 16px; right: 16px; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border2); background: var(--surface); color: var(--text-2); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--tx); }
+.theme-fab:hover { color: var(--text); border-color: var(--accent); }
+
+.login-shell { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); width: 100%; max-width: 1060px; border: 1px solid var(--border2); border-radius: 22px; overflow: hidden; background: var(--surface); box-shadow: var(--shadow); }
+.login-shell.wide { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); max-width: 1120px; }
+
+.brand-panel { position: relative; display: flex; flex-direction: column; justify-content: flex-end; min-height: 640px; padding: 40px; color: #e8efee; background: #070d14 url(auth-map.svg) center top / cover no-repeat; isolation: isolate; }
+.brand-panel::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(to top, rgba(7,13,20,.96) 8%, rgba(7,13,20,.7) 40%, transparent 72%); }
+.brand-row { display: flex; align-items: center; gap: 12px; margin-bottom: auto; padding-bottom: 32px; }
+.brand-mark { width: 38px; height: 38px; border-radius: 10px; background: #2ee6c5; color: #04100f; font-weight: 800; font-size: .85rem; display: flex; align-items: center; justify-content: center; }
+.brand-logo { font-size: 1.3rem; font-weight: 700; letter-spacing: -.02em; }
+.brand-logo span { color: #2ee6c5; }
+.brand-tagline { font-family: var(--font-display); font-size: clamp(1.9rem, 3vw, 2.5rem); font-weight: 500; letter-spacing: -.015em; line-height: 1.12; margin-bottom: 14px; text-wrap: balance; }
+.brand-tagline em { font-style: italic; color: #2ee6c5; }
+.brand-sub { font-size: .92rem; color: #a9b9b8; line-height: 1.65; max-width: 420px; }
+.brand-features { list-style: none; margin-top: 24px; display: grid; gap: 12px; }
+.brand-features li { display: flex; align-items: flex-start; gap: 12px; font-size: .84rem; color: #a9b9b8; }
+.feat-icon { width: 30px; height: 30px; flex-shrink: 0; border-radius: 10px; background: rgba(46,230,197,.12); color: #2ee6c5; display: flex; align-items: center; justify-content: center; }
+.brand-features strong { display: block; color: #e8efee; font-size: .88rem; }
+
+.login-card { padding: clamp(28px, 5vw, 56px); display: flex; flex-direction: column; justify-content: center; }
+.back { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; margin-bottom: 28px; font-size: .84rem; color: var(--muted); }
+.back:hover { color: var(--text); }
+.back .icon { width: 15px; height: 15px; transform: rotate(180deg); }
+.login-title { font-family: var(--font-display); font-size: 2.1rem; font-weight: 500; letter-spacing: -.015em; margin-bottom: 8px; }
+.login-sub { font-size: .92rem; color: var(--text-2); margin-bottom: 28px; }
+.login-card .form-input, .login-card .form-select { padding: 13px 14px; font-size: .95rem; }
+.login-card .form-label { font-size: .8rem; margin-bottom: 7px; }
+.login-card .btn-xl { border-radius: 999px; padding: 15px 28px; font-size: 1rem; margin-top: 8px; }
+.pw-wrap { position: relative; }
+.pw-wrap .form-input { padding-right: 70px; }
+.pw-toggle { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); min-height: 36px; background: none; border: none; color: var(--muted); font-size: .78rem; font-weight: 700; cursor: pointer; padding: 0 10px; border-radius: 10px; }
+.pw-toggle:hover { color: var(--text); background: var(--surface3); }
+.login-alt { margin-top: 22px; text-align: center; font-size: .88rem; color: var(--text-2); }
+.login-alt a { font-weight: 700; }
+
+.brand-panel > *, .login-card > * { animation: rise .7s cubic-bezier(.2,.7,.2,1) both; }
+.login-card > :nth-child(2) { animation-delay: .06s; } .login-card > :nth-child(3) { animation-delay: .1s; } .login-card > :nth-child(n+4) { animation-delay: .14s; }
+@keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .brand-panel > *, .login-card > * { animation: none; } }
+
+/* sign-up */
+.type-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.type-card { position: relative; display: block; cursor: pointer; }
+.type-card input { position: absolute; opacity: 0; inset: 0; cursor: pointer; }
+.type-card span.box { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 16px 8px; border: 1.5px solid var(--field-bd); border-radius: 16px; background: var(--surface2); color: var(--text-2); transition: var(--tx); font-size: .8rem; min-height: 96px; justify-content: center; }
+.type-card span.box strong { color: var(--text); font-size: .92rem; }
+.type-card span.box svg { width: 22px; height: 22px; }
+.type-card input:checked + span.box { border-color: var(--accent); background: var(--accent-bg); color: var(--text); }
+.type-card input:checked + span.box svg { color: var(--accent); }
+.type-card input:focus-visible + span.box { outline: 2px solid var(--accent); outline-offset: 2px; }
+.type-card:hover span.box { border-color: var(--accent); }
+
+@media (max-width: 860px) {
+  body { padding: 12px; align-items: flex-start; }
+  .login-shell, .login-shell.wide { grid-template-columns: 1fr; max-width: 520px; }
+  .brand-panel { min-height: 0; padding: 24px; background-position: center 30%; }
+  .brand-row { padding-bottom: 72px; }
+  .brand-tagline { font-size: 1.7rem; margin-bottom: 0; }
+  .brand-sub, .brand-features { display: none; }
+  .type-grid { grid-template-columns: 1fr; }
+  .type-card span.box { flex-direction: row; text-align: left; justify-content: flex-start; gap: 12px; min-height: 0; padding: 12px 14px; }
+  .theme-fab { top: 10px; right: 10px; }
+}

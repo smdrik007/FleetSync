@@ -395,7 +395,7 @@ export const isDrawerOpen = () => !!drawerEl?.classList.contains('open');
 
 /* ═══════════════════════ Modal + forms ═══════════════════════ */
 
-function modalShell({ title, size = '', body, foot, onClose }) {
+export function modalShell({ title, size = '', body, foot, onClose }) {
   const opener = document.activeElement;
   const overlay = h('div', { class: 'modal-overlay' });
   const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey, true); if (opener && document.body.contains(opener)) opener.focus(); onClose?.(); };

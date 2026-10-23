@@ -7,7 +7,7 @@ import * as TaskManager from 'expo-task-manager';
 import { AppState, PermissionsAndroid, Platform } from 'react-native';
 
 import { ApiError, SESSION_KEY, api, authState } from './api';
-import { type FlushResult, type TripState, flushQueue, reconcile, startWhenForeground, toPoint } from './logic';
+import { type FlushResult, type TripState, type TripSummary, flushQueue, reconcile, startWhenForeground, toPoint } from './logic';
 import { loadServer } from './server-store';
 
 const TASK = 'fleetsync-gps';
@@ -169,7 +169,7 @@ export async function stopSharing(): Promise<void> {
  * FR-DRV-03 order: stop tracking, upload everything queued (the server rejects points after /end), then end.
  * Throws ApiError when it cannot finish; the trip stays in the "ending" state and can be retried.
  */
-export async function endTrip(tripId: string): Promise<void> {
+export async function endTrip(tripId: string): Promise<TripSummary | null> {
   await writeTrip({ tripId, ending: true });
   await stopUpdates();
   setLive({ lastFix: null });
@@ -180,14 +180,17 @@ export async function endTrip(tripId: string): Promise<void> {
   if (result === 'retry') throw new ApiError('Cannot upload your last points yet. Check your connection and try again.', 'NETWORK');
   if (result === 'unauthorized') throw new ApiError('Your session expired. Sign in again.', 'INVALID_TOKEN', 401);
 
+  let summary: TripSummary | null = null; // null when the server had already ended the trip
   try {
-    await api.post(`/driver/trips/${tripId}/end`);
+    const r = await api.post<Partial<TripSummary>>(`/driver/trips/${tripId}/end`);
+    summary = { distanceKm: r.distanceKm ?? null, durationMinutes: r.durationMinutes ?? null };
   } catch (e) {
     const code = e instanceof ApiError ? e.code : undefined;
     if (code !== 'TRIP_NOT_FOUND' && code !== 'TRIP_ALREADY_ENDED') throw e;
   }
   await clearTrip();
   setLive({ queued: pendingCount() });
+  return summary;
 }
 
 /** Called whenever the server's view of the active trip is known (app start, foreground, after changes). */

@@ -71,13 +71,11 @@ test('admin: another tenant cannot edit a user (404)', async () => {
   assert.strictEqual((await api(apex.token, 'PUT', `/fleet/users/${rahim.id}`, { name: 'Hijack' })).status, 404);
 });
 
-test('admin: roles carry counts; AUTHORITY holds every permission', async () => {
+test('admin: roles list carries user counts, and the permission matrix endpoints are gone', async () => {
   assert.ok(role('AUTHORITY').userCount >= 1);
-  const perms = (await api(ku.token, 'GET', '/fleet/permissions')).body.data;
-  assert.ok(perms.length >= 6 && perms[0].code);
-  const held = (await api(ku.token, 'GET', `/fleet/roles/${role('AUTHORITY').id}/permissions`)).body.data;
-  assert.strictEqual(held.length, perms.length);
-  assert.strictEqual((await api(ku.token, 'GET', `/fleet/roles/${apexRoles[0].id}/permissions`)).status, 404);
+  assert.strictEqual(role('AUTHORITY').permissionCount, undefined);
+  assert.strictEqual((await api(ku.token, 'GET', '/fleet/permissions')).status, 404);
+  assert.strictEqual((await api(ku.token, 'GET', `/fleet/roles/${role('AUTHORITY').id}/permissions`)).status, 404);
 });
 
 test('admin: subscription and institution', async () => {
@@ -91,6 +89,17 @@ test('admin: subscription and institution', async () => {
   assert.strictEqual(renamed.body.data.slug, inst.slug, 'slug is read-only');
   await api(ku.token, 'PUT', '/fleet/institution', { name: inst.name });
   assert.strictEqual((await api(ku.token, 'PUT', '/fleet/institution', { name: '  ' })).status, 422);
+
+  // The logo address: http(s) only, trimmed, and clearable.
+  const logo = 'https://example.com/logo.png';
+  assert.strictEqual((await api(ku.token, 'PUT', '/fleet/institution', { logoUrl: `  ${logo} ` })).body.data.logoUrl, logo);
+  assert.strictEqual((await api(ku.token, 'GET', '/fleet/institution')).body.data.logoUrl, logo);
+  for (const bad of ['javascript:alert(1)', 'ftp://x/y.png', 'not a url', `https://x.com/${'a'.repeat(500)}`]) {
+    const r = await api(ku.token, 'PUT', '/fleet/institution', { logoUrl: bad });
+    assert.strictEqual(r.status, 422, bad);
+    assert.strictEqual(r.body.error.code, 'INVALID_LOGOURL');
+  }
+  assert.strictEqual((await api(ku.token, 'PUT', '/fleet/institution', { logoUrl: '' })).body.data.logoUrl, null);
 });
 
 test('admin: non-authority roles are forbidden from admin endpoints (403)', async () => {

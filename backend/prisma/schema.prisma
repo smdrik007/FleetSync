@@ -27,10 +27,18 @@ model Institution {
   name      String
   slug      String   @unique
   logoUrl   String?  @map("logo_url")
+  /// vehicle | people | things: decides which screens and APIs the institution gets
+  trackingType String @default("vehicle") @map("tracking_type")
+  /// Days vehicle GPS points are kept: 1 | 7 | 30 | 90. Trip summaries (distance, times) are kept forever.
+  gpsRetentionDays Int @default(7) @map("gps_retention_days")
+  /// Shown to drivers and passengers on the mobile "Contact us" screen
+  contactPhone   String? @map("contact_phone")
+  contactEmail   String? @map("contact_email")
+  contactAddress String? @map("contact_address")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  subscriptions         Subscription[]
+  subscriptions        Subscription[]
   users                 User[]
   drivers               Driver[]
   roles                 Role[]
@@ -47,6 +55,7 @@ model Institution {
   maintenanceRecords    MaintenanceRecord[]
   fuelLogs              FuelLog[]
   notifications         Notification[]
+  assets                Asset[]
 
   @@map("institutions")
 }
@@ -101,6 +110,7 @@ model User {
   userRoles     UserRole[]
   fuelLogs      FuelLog[]
   notifications Notification[]
+  guardianships Guardianship[]
 
   /// Composite key required for composite FK references from child tables
   @@unique([institutionId, id], name: "uq_users_tenant")
@@ -273,6 +283,8 @@ model Vehicle {
   assignedRouteId  String?  @map("assigned_route_id") @db.Uuid
   vehicleNumber    String   @map("vehicle_number")
   plateNumber      String   @map("plate_number")
+  /// Tenant-set km per litre, used for the per-trip fuel estimate
+  fuelEfficiencyKmpl Decimal? @map("fuel_efficiency_kmpl") @db.Decimal(6, 2)
   /// CHECK: idle | on_trip | maintenance | offline | retired
   currentStatus    String   @default("idle") @map("current_status")
   createdAt        DateTime @default(now()) @map("created_at")
@@ -300,11 +312,35 @@ model Vehicle {
 // View 3: Tracking and Trips
 // =============================================================================
 
+/// Catalog of device kinds a tenant can pick; `adapter` says how its data reaches /ingest.
+model DeviceType {
+  code              String   @id
+  name              String
+  /// app | diy | gateway
+  family            String
+  /// driver-app | json | osmand | traccar
+  adapter           String
+  defaultIntervalS  Int      @map("default_interval_s")
+  capabilities      String[]
+  /// Placeholders: {{server}} {{key}} {{imei}}
+  setupTemplate     String   @map("setup_template")
+
+  @@map("device_types")
+}
+
 model Device {
   id              String    @id @default(uuid()) @db.Uuid
   institutionId   String    @map("institution_id") @db.Uuid
-  vehicleId       String    @map("vehicle_id") @db.Uuid
+  /// Exactly one of vehicleId / assetId is set (CHECK in the database)
+  vehicleId       String?   @map("vehicle_id") @db.Uuid
+  assetId         String?   @map("asset_id") @db.Uuid
+  offlineAlerted  Boolean   @default(false) @map("offline_alerted")
+  /// Free text for legacy rows; new devices use a device_types.code
   deviceType      String    @map("device_type")
+  /// sha256 of the per-device ingest key (null = authenticated another way, e.g. the driver app)
+  apiKeyHash      String?   @unique @map("api_key_hash")
+  reportingIntervalS Int?   @map("reporting_interval_s")
+  lastBatteryPct  Float?    @map("last_battery_pct")
   /// Physically unique across the platform
   imei            String    @unique
   simIccid        String?   @map("sim_iccid")
@@ -317,9 +353,11 @@ model Device {
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
   institution     Institution             @relation(fields: [institutionId], references: [id], onDelete: Cascade)
-  vehicle         Vehicle                 @relation(fields: [institutionId, vehicleId], references: [institutionId, id])
+  vehicle         Vehicle?                @relation(fields: [institutionId, vehicleId], references: [institutionId, id], onDelete: Restrict)
+  asset           Asset?                  @relation(fields: [institutionId, assetId], references: [institutionId, id], onDelete: Restrict)
   gpsLogs         GpsLog[]
   latestPositions VehicleLatestPosition[]
+  assetLatest     AssetLatestPosition[]
 
   @@unique([institutionId, id], name: "uq_devices_tenant")
   @@index([vehicleId], name: "idx_devices_vehicle")
@@ -336,6 +374,8 @@ model Trip {
   status        String    @default("in_progress")
   startedAt     DateTime  @default(now()) @map("started_at")
   endedAt       DateTime? @map("ended_at")
+  /// Filled when the trip ends (see lib/tripDistance.js); NULL = not computed yet
+  distanceKm    Decimal?  @map("distance_km") @db.Decimal(10, 3)
 
   institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
   vehicle     Vehicle     @relation(fields: [institutionId, vehicleId], references: [institutionId, id])
@@ -358,7 +398,8 @@ model GpsLog {
   id            BigInt   @default(autoincrement())
   recordedAt    DateTime @map("recorded_at")
   institutionId String   @map("institution_id") @db.Uuid
-  vehicleId     String   @map("vehicle_id") @db.Uuid
+  vehicleId     String?  @map("vehicle_id") @db.Uuid
+  assetId       String?  @map("asset_id") @db.Uuid
   deviceId      String   @map("device_id") @db.Uuid
   tripId        String?  @map("trip_id") @db.Uuid
   /// PostGIS geography(Point, 4326) — stored natively; read via raw SQL
@@ -367,15 +408,20 @@ model GpsLog {
   speed         Float?
   heading       Float?
   ignitionOn    Boolean? @map("ignition_on")
+  batteryPct    Float?   @map("battery_pct")
+  /// Device-specific extras, e.g. {"sos": true}
+  attrs         Json?
   receivedAt    DateTime @default(now()) @map("received_at")
 
   institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
-  vehicle     Vehicle     @relation(fields: [institutionId, vehicleId], references: [institutionId, id])
+  vehicle     Vehicle?    @relation(fields: [institutionId, vehicleId], references: [institutionId, id], onDelete: Restrict)
+  asset       Asset?      @relation(fields: [institutionId, assetId], references: [institutionId, id], onDelete: Cascade)
   device      Device      @relation(fields: [institutionId, deviceId], references: [institutionId, id])
   trip        Trip?       @relation(fields: [institutionId, tripId], references: [institutionId, id])
 
   @@id([id, recordedAt])
   @@index([vehicleId], name: "idx_gps_logs_vehicle_time")
+  @@index([tripId, recordedAt], name: "idx_gps_logs_trip_time")
   @@map("gps_logs")
 }
 
@@ -391,6 +437,8 @@ model VehicleLatestPosition {
   speed         Float?
   heading       Float?
   ignitionOn    Boolean? @map("ignition_on")
+  batteryPct    Float?   @map("battery_pct")
+  attrs         Json?
   recordedAt    DateTime @map("recorded_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -461,4 +509,91 @@ model Notification {
 
   @@index([userId], name: "idx_notifications_user_unread")
   @@map("notifications")
+}
+
+
+// =============================================================================
+// View 5: People tracking (assets, guardians, safe zones)
+// =============================================================================
+
+/// A tracked person or piece of equipment. Positions are stored only after consent is recorded.
+model Asset {
+  id             String    @id @default(uuid()) @db.Uuid
+  institutionId  String    @map("institution_id") @db.Uuid
+  /// person | equipment
+  kind           String    @default("person")
+  name           String
+  /// Optional human-readable ID (student/resident number); unique per institution
+  code           String?
+  notes          String?
+  consentAt      DateTime? @map("consent_at")
+  consentBy      String?   @map("consent_by")
+  trackingPaused Boolean   @default(false) @map("tracking_paused")
+  /// Points older than this many days are purged
+  retentionDays  Int       @default(30) @map("retention_days")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  institution    Institution           @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  devices        Device[]
+  gpsLogs        GpsLog[]
+  latest         AssetLatestPosition?
+  guardianships  Guardianship[]
+  geofences      Geofence[]
+
+  @@unique([institutionId, id], name: "uq_assets_tenant")
+  @@unique([institutionId, code], name: "uq_assets_code")
+  @@map("assets")
+}
+
+model AssetLatestPosition {
+  assetId       String   @id @map("asset_id") @db.Uuid
+  institutionId String   @map("institution_id") @db.Uuid
+  deviceId      String   @map("device_id") @db.Uuid
+  location      Unsupported("geography(Point, 4326)")
+  speed         Float?
+  heading       Float?
+  batteryPct    Float?   @map("battery_pct")
+  attrs         Json?
+  recordedAt    DateTime @map("recorded_at")
+  updatedAt     DateTime @default(now()) @map("updated_at")
+
+  asset  Asset  @relation(fields: [institutionId, assetId], references: [institutionId, id], onDelete: Cascade)
+  device Device @relation(fields: [institutionId, deviceId], references: [institutionId, id], onDelete: Cascade)
+
+  @@unique([institutionId, assetId])
+  @@map("asset_latest_position")
+}
+
+model Guardianship {
+  institutionId String   @map("institution_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  assetId       String   @map("asset_id") @db.Uuid
+  /// e.g. Mother, Teacher, Caregiver
+  relationship  String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user  User  @relation(fields: [institutionId, userId], references: [institutionId, id], onDelete: Cascade)
+  asset Asset @relation(fields: [institutionId, assetId], references: [institutionId, id], onDelete: Cascade)
+
+  @@id([userId, assetId])
+  @@map("guardianships")
+}
+
+/// Circular safe zone around a point.
+model Geofence {
+  id            String   @id @default(uuid()) @db.Uuid
+  institutionId String   @map("institution_id") @db.Uuid
+  assetId       String   @map("asset_id") @db.Uuid
+  name          String
+  latitude      Float
+  longitude     Float
+  radiusM       Int      @map("radius_m")
+  /// Last known state, so a crossing alerts once
+  lastInside    Boolean? @map("last_inside")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  asset Asset @relation(fields: [institutionId, assetId], references: [institutionId, id], onDelete: Cascade)
+
+  @@map("geofences")
 }

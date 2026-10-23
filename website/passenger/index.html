@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FleetSync — Track My Bus</title>
-  <meta name="description" content="Track your bus in real time — live map, route milestones, and driver contact." />
+  <title>FleetSync | Track My Bus</title>
+  <meta name="description" content="Track your bus in real time with a live map, route milestones and driver contact." />
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="../style.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -49,6 +50,13 @@
     </div>
     <div id="not-started" class="alert alert-info hidden" style="margin:14px 0 0">
       <span class="alert-icon" aria-hidden="true">i</span><span>This trip has not started yet. The map updates as soon as the driver begins.</span>
+    </div>
+    <div id="next-stop" class="hidden" style="margin-top:14px;padding:12px 14px;border-radius:12px;background:var(--accent-bg);border:1px solid var(--border)" role="status" aria-live="polite">
+      <div class="m-label" id="ns-label">Next stop</div>
+      <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div style="font-size:1.15rem;font-weight:800" id="ns-name">—</div>
+        <div style="text-align:right"><div style="font-size:1.15rem;font-weight:800" id="ns-eta">—</div><div class="text-xs text-muted" id="ns-sub"></div></div>
+      </div>
     </div>
     <div id="stepper-wrap" class="hidden" style="margin-top:16px">
       <div class="m-label">Route milestones</div>
@@ -140,7 +148,7 @@ function drawRoute(stops) {
   if (!stops?.length) return;
   const pts = stops.map((s) => [s.latitude, s.longitude]);
   L.polyline(pts, { color: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(), weight: 4, opacity: 0.55, dashArray: '2 8' }).addTo(routeLayer);
-  stops.forEach((s, i) => L.circleMarker([s.latitude, s.longitude], { radius: 6, color: '#fff', weight: 2, fillColor: '#5b8def', fillOpacity: 1 }).bindTooltip(Object.assign(document.createElement('span'), { textContent: `${i + 1}. ${s.name}` })).addTo(routeLayer));
+  stops.forEach((s, i) => L.circleMarker([s.latitude, s.longitude], { radius: 6, color: '#fff', weight: 2, fillColor: '#2ee6c5', fillOpacity: 1 }).bindTooltip(Object.assign(document.createElement('span'), { textContent: `${i + 1}. ${s.name}` })).addTo(routeLayer));
 }
 
 /* ─── Vehicle list (FR-PAS-01) ─────────────────────────────────────── */
@@ -148,11 +156,11 @@ async function loadVehicles() {
   try {
     vehicles = await Api.get('/passenger/vehicles');
     const sel = $('vehicle-select');
-    sel.replaceChildren(new Option('— Select a vehicle —', ''));
+    sel.replaceChildren(new Option('Select a vehicle', ''));
     if (!vehicles.length) { sel.replaceChildren(new Option('No vehicles available yet', '')); return; }
     vehicles.forEach((v) => {
       const dot = v.currentStatus === 'on_trip' ? '● ' : v.currentStatus === 'idle' ? '○ ' : '× ';
-      const opt = new Option(`${dot}${v.vehicleNumber} — ${v.assignedRoute || 'No route set'}`, v.id);
+      const opt = new Option(`${dot}${v.vehicleNumber}, ${v.assignedRoute || 'No route set'}`, v.id);
       opt.disabled = !v.selectable;
       sel.append(opt);
     });
@@ -201,6 +209,7 @@ function render(data) {
   } else { $('map-live-badge').replaceChildren(); setSignal(false, null); }
 
   $('not-started').classList.toggle('hidden', onTrip || data.currentStatus !== 'idle');
+  renderProgress(data.progress, pos);
 
   const stops = data.routeStops?.length ? data.routeStops : parseRoute(data.assignedRoute).map((name) => ({ name }));
   drawRoute(data.routeStops);
@@ -214,6 +223,25 @@ function render(data) {
   else $('driver-card').classList.add('hidden');
 
   startStaleMonitor();
+}
+
+/** Next stop and approximate arrival, from the server (it knows the route and the bus's recent speed). */
+function renderProgress(p, pos) {
+  const card = $('next-stop');
+  if (!p || (pos && pos.isStale)) { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  if (!p.next) {
+    $('ns-label').textContent = 'Trip status';
+    $('ns-name').textContent = `Arrived at ${p.atStop}`;
+    $('ns-eta').textContent = 'Final stop';
+    $('ns-sub').textContent = '';
+    return;
+  }
+  $('ns-label').textContent = p.atStop ? `At ${p.atStop} · next stop` : 'Next stop';
+  $('ns-name').textContent = p.next.name;
+  $('ns-eta').textContent = p.next.etaMinutes <= 1 ? 'about 1 min' : `about ${p.next.etaMinutes} min`;
+  const km = p.next.distanceM >= 1000 ? `${(p.next.distanceM / 1000).toFixed(1)} km` : `${Math.round(p.next.distanceM / 10) * 10} m`;
+  $('ns-sub').textContent = `${km} away · estimate`;
 }
 
 function renderDriver(driver, vehicleNumber) {
@@ -231,7 +259,7 @@ function setSignal(stale, updatedAt) {
   const banner = $('signal-lost-banner');
   const badge = document.createElement('span');
   if (stale) {
-    $('signal-lost-text').textContent = `Signal lost — last updated ${timeAgo(new Date(updatedAt))}`;
+    $('signal-lost-text').textContent = `Signal lost. Last updated ${timeAgo(new Date(updatedAt))}`;
     badge.className = 'badge badge-amber'; badge.textContent = `Last seen ${fmtTime(updatedAt)}`;
     if (marker) setMarker(marker.getLatLng().lat, marker.getLatLng().lng, true, false);
   } else if (updatedAt !== null || lastUpdateAt) {
@@ -249,9 +277,12 @@ function startStaleMonitor() {
 }
 
 /* ─── Live events ──────────────────────────────────────────────────── */
+let lastProgressAt = 0;
 function onLocationUpdate(d) {
   if (d.vehicleId !== selectedId) return;
   lastUpdateAt = Date.now();
+  // The next stop and time are worked out on the server; ask again every 15 s while the bus moves.
+  if (Date.now() - lastProgressAt > 15000) { lastProgressAt = Date.now(); loadStatus(selectedId, { quiet: true }); }
   setMarker(d.latitude, d.longitude, false);
   setSignal(false, null);
   $('map-live-badge').replaceChildren(Object.assign(document.createElement('span'), { className: 'badge badge-green badge-dot', textContent: 'Live' }));
@@ -269,6 +300,7 @@ function onTripEnded(d) {
   Toast.info(`Trip has ended for ${d.vehicleNumber}.`);
   clearInterval(staleTimer); staleTimer = null; lastUpdateAt = null;
   $('signal-lost-banner').classList.add('hidden');
+  $('next-stop').classList.add('hidden');
   $('map-live-badge').replaceChildren(Object.assign(document.createElement('span'), { className: 'badge badge-muted', textContent: 'Trip ended' }));
   $('v-status').innerHTML = statusBadge('idle');
 }
@@ -278,7 +310,7 @@ function resetView() {
   if (marker) { marker.remove(); marker = null; }
   routeLayer.clearLayers();
   clearInterval(staleTimer); staleTimer = null; lastUpdateAt = null; current = null;
-  ['signal-lost-banner', 'vehicle-card', 'driver-card', 'not-started'].forEach((id) => $(id).classList.add('hidden'));
+  ['signal-lost-banner', 'vehicle-card', 'driver-card', 'not-started', 'next-stop'].forEach((id) => $(id).classList.add('hidden'));
   $('pick-hint').classList.toggle('hidden', !!selectedId);
   $('map-live-badge').replaceChildren();
   map.setView([23.685, 90.356], 7);
