@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FleetSync — Driver Console</title>
-  <meta name="description" content="FleetSync driver console — view your assignment, start and end trips, and broadcast your live location." />
+  <title>FleetSync | Driver Console</title>
+  <meta name="description" content="FleetSync driver console: view your assignment, start and end trips, and share your live location." />
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="../style.css" />
   <script src="../app.js"></script>
 </head>
@@ -157,7 +158,7 @@ function renderAssignment() {
   $('vehicle-number').textContent = v.vehicleNumber;
   $('vehicle-plate').textContent = `${v.plateNumber}${v.model ? ` · ${v.model}` : ''}${v.capacity ? ` · ${v.capacity} seats` : ''}`;
   $('vehicle-status-badge').innerHTML = statusBadge(v.currentStatus);
-  $('route-name').textContent = v.assignedRoute || 'No route assigned — you are on demand.';
+  $('route-name').textContent = v.assignedRoute || 'No route assigned. You are on demand.';
 
   const stops = routeStops();
   renderStepper($('route-stepper'), stops, -1);

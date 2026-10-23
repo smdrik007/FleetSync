@@ -66,7 +66,7 @@ export async function openVehicleDrawer(id, { onClose, onChanged } = {}) {
     Api.get(`/fleet/maintenance?vehicleId=${id}`), Api.get(`/fleet/fuel?vehicleId=${id}`),
   ]);
   const model = models.find((m) => m.id === v.modelId);
-  const myDevices = devices.filter((d) => d.vehicle.id === id);
+  const myDevices = devices.filter((d) => d.vehicle?.id === id);
   const pos = v.lastKnownPosition;
   // After an edit: refresh the list behind the drawer and redraw the drawer with fresh data.
   const refresh = () => { onChanged?.(); openVehicleDrawer(id, { onClose, onChanged }); };

@@ -4,7 +4,8 @@
  */
 import * as ui from './ui.js';
 import { registerRoute, startRouter, navigate } from './router.js';
-import { NAV, ROUTES, loaderFor, findNav } from './nav.js';
+import { navFor, routesFor, homeFor, loaderFor, findNav } from './nav.js';
+import { Tenant } from './data.js';
 
 const { h, icon, initials, fmtRelative } = ui;
 const $ = (id) => document.getElementById(id);
@@ -12,19 +13,41 @@ const $ = (id) => document.getElementById(id);
 if (!Auth.require('AUTHORITY')) throw new Error('redirecting to login');
 const me = Auth.user() || {};
 
+// The institution decides which screens exist; ask the server rather than trusting what was stored at sign-in.
+let institution = null;
+try { institution = await Api.get('/fleet/institution'); Tenant.trackingType = institution.trackingType || 'vehicle'; } catch { /* keep the vehicle layout */ }
+
 /* ───────────── Sidebar ───────────── */
 const nav = $('nav');
-for (const g of NAV) {
-  nav.append(h('div', { class: 'nav-group' },
-    h('div', { class: 'nav-group-label' }, g.group),
-    ...g.items.map((item) => h('a', { class: 'nav-item', href: `#${item.path}`, dataset: { path: item.path }, title: item.label }, icon(item.icon, 'nav-icon'), h('span', {}, item.label)))));
+// Groups fold so a long menu stays short; which ones are folded is remembered. A group with one screen needs no heading.
+const CLOSED_KEY = 'fs_nav_closed';
+let closedGroups = new Set();
+try { closedGroups = new Set(JSON.parse(localStorage.getItem(CLOSED_KEY) || '[]')); } catch { /* storage blocked */ }
+for (const g of navFor(Tenant.trackingType)) {
+  const items = g.items.map((item) => h('a', { class: 'nav-item', href: `#${item.path}`, dataset: { path: item.path }, title: item.label }, icon(item.icon, 'nav-icon'), h('span', {}, item.label)));
+  const foldable = g.items.length > 1;
+  const wrap = h('div', { class: `nav-group${foldable ? (closedGroups.has(g.group) ? ' closed' : '') : ' plain'}` });
+  const label = foldable
+    ? h('button', { class: 'nav-group-label', type: 'button', 'aria-expanded': String(!closedGroups.has(g.group)), onclick: () => {
+        const closed = wrap.classList.toggle('closed');
+        label.setAttribute('aria-expanded', String(!closed));
+        if (closed) closedGroups.add(g.group); else closedGroups.delete(g.group);
+        try { localStorage.setItem(CLOSED_KEY, JSON.stringify([...closedGroups])); } catch { /* ignore */ }
+      } }, g.group, icon('down'))
+    : null;
+  if (label) wrap.append(label);
+  wrap.append(h('div', { class: 'nav-group-items' }, ...items));
+  nav.append(wrap);
 }
 
 function markActive(path) {
   nav.querySelectorAll('.nav-item').forEach((a) => {
     const on = path === a.dataset.path || path.startsWith(`${a.dataset.path}/`);
     a.classList.toggle('active', on);
-    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    if (on) {
+      a.setAttribute('aria-current', 'page');
+      a.closest('.nav-group').classList.remove('closed'); // never hide the screen you are on
+    } else a.removeAttribute('aria-current');
   });
 }
 
@@ -50,7 +73,11 @@ $('collapse-btn').addEventListener('click', () => {
 });
 $('menu-btn').append(icon('menu'));
 $('menu-btn').addEventListener('click', () => shell.classList.add('menu-open'));
-$('scrim').addEventListener('click', () => shell.classList.remove('menu-open'));
+$('sidebar-close').append(icon('x'));
+const closeMenu = () => shell.classList.remove('menu-open');
+$('sidebar-close').addEventListener('click', closeMenu);
+$('scrim').addEventListener('click', closeMenu);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
 nav.addEventListener('click', (e) => { if (e.target.closest('a')) shell.classList.remove('menu-open'); });
 
 /* ───────────── Topbar ───────────── */
@@ -60,15 +87,6 @@ $('search-btn').addEventListener('click', openPalette);
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openPalette(); }
 });
-
-function paintTheme() {
-  const btn = $('theme-btn');
-  btn.replaceChildren(icon(Theme.current() === 'light' ? 'moon' : 'sun'));
-  btn.setAttribute('aria-label', Theme.current() === 'light' ? 'Switch to dark theme' : 'Switch to light theme');
-}
-$('theme-btn').addEventListener('click', () => Theme.toggle());
-window.addEventListener('fs:theme', paintTheme);
-paintTheme();
 
 function paintWs(status) {
   const on = status === 'connected';
@@ -99,6 +117,8 @@ wireMenu('user-btn', 'user-menu', (menu) => {
   menu.replaceChildren(
     h('div', { class: 'menu-head' }, h('div', {}, h('div', {}, me.name), h('small', { class: 'text-muted' }, me.email))),
     h('button', { class: 'menu-item', type: 'button', onclick: () => { navigate('/admin/institution'); } }, icon('building', 'icon-sm'), 'Institution settings'),
+    h('button', { class: 'menu-item', type: 'button', onclick: () => { Theme.toggle(); menu.classList.add('hidden'); } },
+      icon(Theme.current() === 'light' ? 'moon' : 'sun', 'icon-sm'), Theme.current() === 'light' ? 'Dark theme' : 'Light theme'),
     h('button', { class: 'menu-item', type: 'button', onclick: logout }, icon('logout', 'icon-sm'), 'Sign out'));
 });
 
@@ -142,20 +162,36 @@ WsManager.on('notification.new', (n) => { Toast.info(n.title); refreshUnread(); 
 window.addEventListener('fs:notifications-changed', refreshUnread);
 
 /* institution chip */
+/** Put the institution logo in an avatar slot, keeping `fallback` text until (and unless) the image loads. */
+function paintLogo(av, url, fallback) {
+  av.classList.remove('has-logo');
+  av.textContent = fallback;
+  if (!url) return;
+  const img = h('img', { src: url, alt: '', referrerpolicy: 'no-referrer' });
+  img.addEventListener('load', () => { av.classList.add('has-logo'); av.replaceChildren(img); });
+}
+
 const paintInstitution = (inst) => {
   $('inst-name').textContent = inst.name;
   $('inst-slug').textContent = inst.slug;
-  $('inst-avatar').textContent = initials(inst.name);
+  // The logo shows in the sidebar chip and on the account button (top right); initials if it does not load.
+  paintLogo($('inst-avatar'), inst.logoUrl, initials(inst.name));
+  paintLogo($('user-avatar'), inst.logoUrl, initials(me.name));
 };
-Api.get('/fleet/institution').then(paintInstitution).catch(() => { $('inst-name').textContent = 'Your institution'; });
+if (institution) paintInstitution(institution); else $('inst-name').textContent = 'Your institution';
 window.addEventListener('fs:institution-changed', (e) => paintInstitution(e.detail));
 
 /* ───────────── Router ───────────── */
-for (const [pattern, name] of ROUTES) registerRoute(pattern, loaderFor(name));
+for (const [pattern, name] of routesFor(Tenant.trackingType)) registerRoute(pattern, loaderFor(name));
+
+// A bookmarked screen this institution does not have goes to its home instead of "Page not found".
+const allowedRoutes = routesFor(Tenant.trackingType).map(([p]) => new RegExp(`^${p.replace(/:[A-Za-z]+/g, '[^/]+')}$`));
+const startPath = (location.hash.replace(/^#/, '') || '/').split('?')[0];
+if (location.hash && !allowedRoutes.some((r) => r.test(startPath))) location.hash = `#${homeFor(Tenant.trackingType)}`;
 
 WsManager.connect();
 refreshUnread();
 startRouter($('view'), { api: Api, ws: WsManager, ui }, {
-  home: '/overview/dashboard',
+  home: homeFor(Tenant.trackingType),
   onChange: ({ path, view }) => { markActive(path); setCrumbs(path, view); },
 });

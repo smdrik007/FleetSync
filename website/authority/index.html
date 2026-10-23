@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FleetSync — Authority Console</title>
+  <title>FleetSync | Authority Console</title>
   <meta name="description" content="FleetSync authority console: fleet, tracking, operations and administration for your institution." />
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="../style.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -19,6 +20,7 @@
       <div class="sidebar-head">
         <div class="logo-mark" aria-hidden="true">FS</div>
         <div class="sidebar-brand">Fleet<span>Sync</span></div>
+        <button class="top-btn sidebar-close" id="sidebar-close" type="button" aria-label="Close menu"></button>
       </div>
       <div class="inst-chip" id="inst-chip">
         <div class="avatar" id="inst-avatar" aria-hidden="true">·</div>
@@ -42,7 +44,6 @@
           <span id="search-icon"></span><span class="st-text">Search…</span><span class="kbd">Ctrl K</span>
         </button>
         <div class="ws-pill" id="ws-pill" role="status" aria-live="polite"><i class="dot-live off" id="ws-dot"></i><span id="ws-text">Connecting</span></div>
-        <button class="top-btn" id="theme-btn" type="button" aria-label="Toggle theme"></button>
         <div style="position:relative">
           <button class="top-btn" id="bell-btn" type="button" aria-label="Notifications" aria-haspopup="true" aria-expanded="false">
             <span id="bell-icon"></span><span class="bell-badge hidden" id="bell-badge">0</span>

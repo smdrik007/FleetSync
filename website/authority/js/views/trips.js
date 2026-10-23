@@ -16,7 +16,7 @@ const stopReplay = () => { replay?.destroy(); replay = null; };
 
 /** Map + slider replay of a trip's GPS track. */
 function buildReplay(track) {
-  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#5b8def';
+  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#2ee6c5';
   const mapEl = h('div', { class: 'map-box short' });
   const slider = h('input', { class: 'range', type: 'range', min: 0, max: track.length - 1, value: 0, 'aria-label': 'Replay position' });
   const readout = h('div', { class: 'text-sm', 'aria-live': 'off' });
